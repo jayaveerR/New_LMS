@@ -57,14 +57,13 @@ export function UserProfile() {
             // Merge with user metadata for fallback
             setProfile({
                 id: user.id,
-                full_name: data.full_name || userData?.user_metadata?.full_name || '',
+                full_name: data?.full_name || userData?.user_metadata?.full_name || '',
                 email: userData?.email || '',
-                avatar_url: data.avatar_url || userData?.user_metadata?.avatar_url || '',
-                // These fields might not exist in the schema yet, handle gracefully
-                bio: (data as Record<string, unknown>).bio as string || '',
-                phone: (data as Record<string, unknown>).phone as string || '',
-                location: (data as Record<string, unknown>).location as string || '',
-                skills: (data as Record<string, unknown>).skills as string[] || []
+                avatar_url: data?.avatar_url || userData?.user_metadata?.avatar_url || '',
+                bio: data?.bio || '',
+                phone: data?.phone || '',
+                location: data?.location || '',
+                skills: data?.skills || []
             });
         } catch (error: unknown) {
             console.error('Error fetching profile:', error);
@@ -170,9 +169,37 @@ export function UserProfile() {
                         <CardTitle>{profile.full_name}</CardTitle>
                         <CardDescription>{profile.email}</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
                         <div className="text-sm text-muted-foreground text-center">
                             Student • Joined {new Date().getFullYear()}
+                        </div>
+
+                        <div className="pt-4 border-t">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3 block">My Learning ID</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    readOnly
+                                    value={profile.id}
+                                    className="bg-muted/50 font-mono text-[10px] h-9"
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 px-3"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(profile.id);
+                                        toast({
+                                            title: "ID Copied",
+                                            description: "Share this ID with your instructor to get course access.",
+                                        });
+                                    }}
+                                >
+                                    Copy
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-2 leading-tight">
+                                Share this UUID with your instructor so they can manually enroll you in courses.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>

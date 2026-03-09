@@ -5,10 +5,10 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminData } from "@/hooks/useAdminData";
-import AmbientBackground from "@/components/ui/AmbientBackground";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { CourseApproval } from "@/components/admin/CourseApproval";
 import { SecurityMonitor } from "@/components/admin/SecurityMonitor";
+import { QuestionBankApproval } from "@/components/admin/QuestionBankApproval";
 import {
   Card,
   CardContent,
@@ -38,6 +38,7 @@ import {
   RefreshCw,
   FileText,
   Trash2,
+  FileQuestion,
 } from "lucide-react";
 
 const platformMetrics = [
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
     approveCourse,
     rejectCourse,
     resolveSecurityEvent,
+    sendApprovalEmail,
   } = useAdminData();
 
   useEffect(() => {
@@ -81,13 +83,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-screen overflow-hidden">
       <AdminSidebar />
-      <SidebarInset>
-        <AmbientBackground />
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         <AdminHeader />
-
-        <main className="flex-1 p-6 space-y-6">
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Welcome Section */}
           <div className="flex items-center justify-between">
             <div>
@@ -206,10 +206,14 @@ export default function AdminDashboard() {
 
           {/* Main Tabs */}
           <Tabs defaultValue="users" className="space-y-6">
-            <TabsList className="grid w-full max-w-2xl grid-cols-5">
+            <TabsList className="grid w-full max-w-3xl grid-cols-6">
               <TabsTrigger value="users" className="gap-2">
                 <Users className="h-4 w-4" />
                 Users
+              </TabsTrigger>
+              <TabsTrigger value="questions" className="gap-2">
+                <FileQuestion className="h-4 w-4" />
+                Q-Bank
               </TabsTrigger>
               <TabsTrigger value="courses" className="gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -237,7 +241,13 @@ export default function AdminDashboard() {
                 roleCounts={stats.roleCounts}
                 onUpdateStatus={updateUserStatus}
                 onUpdateRole={updateUserRole}
+                onSendEmail={sendApprovalEmail}
               />
+            </TabsContent>
+
+            {/* Question Bank Approval Tab */}
+            <TabsContent value="questions" className="space-y-6">
+              <QuestionBankApproval />
             </TabsContent>
 
             {/* Courses Tab */}
@@ -365,13 +375,12 @@ export default function AdminDashboard() {
                         <div className="flex justify-between text-sm">
                           <span>{metric.label}</span>
                           <span
-                            className={`font-medium ${
-                              metric.value > 80
-                                ? "text-destructive"
-                                : metric.value > 60
-                                  ? "text-accent"
-                                  : "text-green-600"
-                            }`}
+                            className={`font-medium ${metric.value > 80
+                              ? "text-destructive"
+                              : metric.value > 60
+                                ? "text-accent"
+                                : "text-green-600"
+                              }`}
                           >
                             {metric.value}%
                           </span>

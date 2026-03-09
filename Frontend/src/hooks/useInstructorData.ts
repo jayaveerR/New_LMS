@@ -1,6 +1,9 @@
+import { fetchWithAuth } from '@/lib/api';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+const API_URL = 'http://localhost:5000/api';
 
 export interface Course {
   id: string;
@@ -11,6 +14,22 @@ export interface Course {
   thumbnail_url: string | null;
   instructor_id: string | null;
   created_at: string | null;
+  level?: string | null;
+  duration_hours?: number;
+}
+
+export interface LiveClass {
+  id: string;
+  instructor_id: string;
+  course_id: string | null;
+  title: string;
+  description: string | null;
+  scheduled_at: string;
+  duration_minutes: number;
+  meeting_id: string | null;
+  meeting_url: string | null;
+  start_url: string | null;
+  status: string;
 }
 
 export interface CourseTopic {
@@ -40,13 +59,14 @@ export interface CourseVideo {
 export interface CourseResource {
   id: string;
   course_id: string;
-  topic_id: string | null;
-  title: string;
-  description: string | null;
+  upload_format: string;
+  asset_title: string;
   resource_type: string;
+  short_description: string | null;
+  instructor_avatar_url: string | null;
+  instructor_name: string | null;
   file_url: string;
-  file_size_bytes: number;
-  order_index: number;
+  created_at?: string;
 }
 
 export interface CourseTimeline {
@@ -70,29 +90,68 @@ export interface CourseAnnouncement {
   created_at: string | null;
 }
 
-const API_URL = 'http://localhost:5000/api';
+export interface Playlist {
+  id: string;
+  youtube_url: string;
+  title: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+}
 
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('access_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-    ...options.headers,
-  };
-  const res = await fetch(`${API_URL}${url}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_role');
-      window.location.reload();
-      throw new Error('Session expired. Please login again.');
-    }
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'API Request Failed');
-  }
-  return res.json();
-};
+export interface PlaylistVideo {
+  id?: string;
+  playlist_id: string;
+  youtube_url: string;
+  title: string;
+  description: string | null;
+  created_at?: string;
+  is_locked?: boolean;
+  is_premium?: boolean;
+  is_prerequisite?: boolean;
+  module_index?: number;
+  total_views?: number;
+  average_watch_time_seconds?: number;
+  completion_rate?: number;
+  drop_off_time_seconds?: number;
+  drop_off_percentage?: number;
+}
+
+
+
+export interface Assignment {
+  id: string;
+  course_id: string;
+  instructor_id: string;
+  title: string;
+  description: string | null;
+  module_id: string | null;
+  submission_types: string[];
+  max_marks: number;
+  deadline: string;
+  allow_late_submissions: boolean;
+  late_penalty_percentage: number;
+  status: 'draft' | 'active' | 'closed' | 'archived';
+  reference_files: { name: string; url: string }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Submission {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  submission_data: { type: string; content: string; file_url?: string };
+  submitted_at: string;
+  status: 'pending' | 'graded' | 'late';
+  score: number | null;
+  feedback: string | null;
+  feedback_files: { name: string; url: string }[];
+  is_plagiarism_flagged: boolean;
+  plagiarism_score: number;
+  student_name?: string;
+}
+
 
 export function useInstructorCourses() {
   const { user } = useAuth();
@@ -104,6 +163,32 @@ export function useInstructorCourses() {
       return fetchWithAuth('/instructor/courses');
     },
     enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+}
+
+export function useInstructorPlaylists() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['instructor-playlists', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return fetchWithAuth(`/data/playlists?created_by=${user.id}`);
+    },
+    enabled: !!user?.id,
+  });
+}
+
+export function usePlaylistVideos(playlistId: string | null) {
+  return useQuery({
+    queryKey: ['playlist-videos', playlistId],
+    queryFn: async () => {
+      if (!playlistId) return [];
+      return fetchWithAuth(`/data/playlist_videos?playlist_id=${playlistId}`);
+    },
+    enabled: !!playlistId,
   });
 }
 
@@ -129,7 +214,37 @@ export function useVideos(courseId: string | null) {
   });
 }
 
+import { supabase } from '@/integrations/supabase/client';
+
 export function useResources(courseId: string | null) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!courseId) return;
+
+    // Set up Realtime subscription
+    const channel = supabase
+      .channel('course-resources-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'course_resources',
+          filter: `course_id=eq.${courseId}`
+        },
+        () => {
+          // Invalidate and refetch when data changes
+          queryClient.invalidateQueries({ queryKey: ['course-resources', courseId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [courseId, queryClient]);
+
   return useQuery({
     queryKey: ['course-resources', courseId],
     queryFn: async () => {
@@ -304,6 +419,129 @@ export function useDeleteResource() {
   });
 }
 
+// --- Assignments ---
+
+export function useAssignments(courseId: string | null) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!courseId) return;
+
+    const channel = supabase
+      .channel('assignments-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'assignments', filter: `course_id=eq.${courseId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['course-assignments', courseId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [courseId, queryClient]);
+
+  return useQuery({
+    queryKey: ['course-assignments', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+
+      try {
+        const res = await fetchWithAuth(`/data/assignments?course_id=eq.${courseId}`);
+        return Array.isArray(res) ? res : [];
+      } catch (err) {
+        console.error('Fetch Assignments Error:', err);
+        throw err;
+      }
+    },
+    enabled: true, // Always enabled so the state is consistent
+  });
+}
+
+export function useAssignmentSubmissions(assignmentId: string | null) {
+  return useQuery({
+    queryKey: ['assignment-submissions', assignmentId],
+    queryFn: async () => {
+      if (!assignmentId) return [];
+      return fetchWithAuth(`/data/assignment_submissions?assignment_id=${assignmentId}`);
+    },
+    enabled: !!assignmentId,
+  });
+}
+
+export function useCreateAssignment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (assignment: Omit<Assignment, 'id' | 'created_at' | 'updated_at'>) => {
+      return fetchWithAuth('/data/assignments', {
+        method: 'POST',
+        body: JSON.stringify(assignment)
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['course-assignments', variables.course_id] });
+      toast({ title: 'Assignment created successfully' });
+    },
+  });
+}
+
+
+export function useUpdateAssignment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Assignment> & { id: string }) => {
+      return fetchWithAuth(`/data/assignments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['course-assignments'] });
+      toast({ title: 'Assignment updated successfully' });
+    },
+  });
+}
+
+export function useDeleteAssignment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, courseId }: { id: string; courseId: string }) => {
+      await fetchWithAuth(`/data/assignments/${id}`, { method: 'DELETE' });
+      return courseId;
+    },
+    onSuccess: (courseId) => {
+      queryClient.invalidateQueries({ queryKey: ['course-assignments', courseId] });
+      toast({ title: 'Assignment deleted successfully', variant: 'destructive' });
+    },
+  });
+}
+
+export function useGradeSubmission() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, gradeData }: { id: string; gradeData: Partial<Submission> }) => {
+      return fetchWithAuth(`/data/assignment_submissions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(gradeData)
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['assignment-submissions'] });
+      toast({ title: 'Grade submitted successfully' });
+    },
+  });
+}
+
 export function useCreateTimeline() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -384,6 +622,50 @@ export function useDeleteAnnouncement() {
   });
 }
 
+export function useCreatePlaylist() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (playlist: Omit<Playlist, 'id' | 'created_at'>) => {
+      return fetchWithAuth('/data/playlists', {
+        method: 'POST',
+        body: JSON.stringify(playlist),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-playlists', user?.id] });
+      toast({ title: 'Playlist created successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error creating playlist', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCreatePlaylistVideo() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (video: Omit<PlaylistVideo, 'id' | 'created_at'>) => {
+      return fetchWithAuth('/data/playlist_videos', {
+        method: 'POST',
+        body: JSON.stringify(video),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-playlists', user?.id] }); // Could also invalidate a specific list of videos
+      toast({ title: 'Video uploaded successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error uploading video', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 // File upload helpers
 export async function uploadVideo(file: File, courseId: string): Promise<string> {
   const formData = new FormData();
@@ -427,4 +709,765 @@ export async function uploadResource(file: File, courseId: string): Promise<stri
 
   const data = await res.json();
   return data.url;
+}
+
+export function useInstructorStats() {
+  const { data: courses } = useInstructorCourses();
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['instructor-stats', user?.id, courses?.length],
+    queryFn: async () => {
+      if (!courses || courses.length === 0) {
+        return { totalStudents: 0, contentItems: 0, avgCompletion: 0 };
+      }
+
+      const courseIds = courses.map((c: Course) => c.id);
+
+      // Fetch enrollments for all courses
+      // In a real app, we'd use a server-side aggregation or a single query with filters
+      const enrollments = await fetchWithAuth(`/data/course_enrollments`);
+      const instructorEnrollments = enrollments.filter((e: { course_id: string }) => courseIds.includes(e.course_id));
+
+      // Fetch videos and resources for content count
+      const allVideos = await fetchWithAuth(`/data/course_videos`);
+      const instructorVideos = allVideos.filter((v: { course_id: string }) => courseIds.includes(v.course_id));
+
+      const allResources = await fetchWithAuth(`/data/course_resources`);
+      const instructorResources = allResources.filter((r: { course_id: string }) => courseIds.includes(r.course_id));
+
+      const totalStudents = instructorEnrollments.length;
+      const contentItems = instructorVideos.length + instructorResources.length;
+
+      const avgCompletion = instructorEnrollments.length > 0
+        ? Math.round(instructorEnrollments.reduce((acc: number, e: { progress_percentage: number }) => acc + (e.progress_percentage || 0), 0) / instructorEnrollments.length)
+        : 0;
+
+      return {
+        totalStudents,
+        contentItems,
+        avgCompletion
+      };
+    },
+    enabled: !!courses && !!user?.id,
+  });
+}
+
+export function useUpdatePlaylistVideo() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<PlaylistVideo> & { id: string }) => {
+      return fetchWithAuth(`/data/playlist_videos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['playlist-videos', variables.playlist_id] });
+      toast({ title: 'Video updated successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error updating video', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeletePlaylistVideo() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, playlistId }: { id: string; playlistId: string }) => {
+      await fetchWithAuth(`/data/playlist_videos/${id}`, { method: 'DELETE' });
+      return playlistId;
+    },
+    onSuccess: (playlistId) => {
+      queryClient.invalidateQueries({ queryKey: ['playlist-videos', playlistId] });
+      toast({ title: 'Video deleted successfully', variant: 'destructive' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error deleting video', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+
+export interface PlaylistAnalytics {
+  playlistId: string;
+  totalVideos: number;
+  totalDurationMinutes: number;
+  enrolledStudents: number;
+  completionRate: number;
+}
+
+export function usePlaylistAnalytics(playlistId: string | null) {
+  return useQuery({
+    queryKey: ['playlist-analytics', playlistId],
+    queryFn: async () => {
+      if (!playlistId) return null;
+
+      const videos = await fetchWithAuth(`/data/playlist_videos?playlist_id=${playlistId}`);
+      const enrollments = await fetchWithAuth(`/data/playlist_enrollments?playlist_id=${playlistId}`);
+
+      const totalVideos = videos.length;
+      const totalDurationMinutes = videos.reduce((acc: number, v: { duration_minutes?: number }) => acc + (v.duration_minutes || 0), 0);
+      const enrolledStudents = enrollments.length;
+      const completionRate = enrollments.length > 0
+        ? Math.round(enrollments.reduce((acc: number, e: { progress_percentage?: number }) => acc + (e.progress_percentage || 0), 0) / enrollments.length)
+        : 0;
+
+      return {
+        playlistId,
+        totalVideos,
+        totalDurationMinutes,
+        enrolledStudents,
+        completionRate
+      } as PlaylistAnalytics;
+    },
+    enabled: !!playlistId,
+  });
+}
+
+export interface VideoAnalytics {
+  videoId: string;
+  videoTitle: string;
+  totalViews: number;
+  averageWatchTimeSeconds: number;
+  completionRate: number;
+  dropOffTimeSeconds: number;
+  dropOffPercentage: number;
+  viewsTrend?: number;
+  watchTimeTrend?: number;
+  completionTrend?: number;
+}
+
+export interface StudentWatchData {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  watchedPercentage: number;
+  lastWatchedAt: string;
+  status: 'completed' | 'watching' | 'stuck';
+}
+
+export function useVideoAnalytics(videoId: string | null) {
+  return useQuery({
+    queryKey: ['video-analytics', videoId],
+    queryFn: async () => {
+      if (!videoId) return null;
+
+      const watchData = await fetchWithAuth(`/data/video_watch_events?video_id=${videoId}`);
+
+      const totalViews = watchData.length;
+      const averageWatchTimeSeconds = watchData.length > 0
+        ? watchData.reduce((acc: number, w: { watch_time_seconds?: number }) => acc + (w.watch_time_seconds || 0), 0) / watchData.length
+        : 0;
+      const completedViews = watchData.filter((w: { completed?: boolean }) => w.completed).length;
+      const completionRate = totalViews > 0 ? Math.round((completedViews / totalViews) * 100) : 0;
+
+      const dropOffTimes = watchData.map((w: { drop_off_seconds?: number }) => w.drop_off_seconds || 0);
+      const dropOffTimeSeconds = dropOffTimes.length > 0
+        ? dropOffTimes.reduce((acc: number, t: number) => acc + t, 0) / dropOffTimes.length
+        : 0;
+      const dropOffPercentage = totalViews > 0
+        ? Math.round(((totalViews - completedViews) / totalViews) * 100)
+        : 0;
+
+      return {
+        videoId,
+        videoTitle: '',
+        totalViews,
+        averageWatchTimeSeconds,
+        completionRate,
+        dropOffTimeSeconds,
+        dropOffPercentage
+      } as VideoAnalytics;
+    },
+    enabled: !!videoId,
+  });
+}
+
+export interface StudentProgress {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  avatarUrl?: string;
+  enrolledAt: string;
+  lastActiveAt: string;
+  overallProgress: number;
+  completedModules: number;
+  totalModules: number;
+  currentModuleIndex: number;
+  currentVideoTitle?: string;
+  watchedPercentage: number;
+  status: 'completed' | 'active' | 'stuck' | 'inactive';
+  timeSpentMinutes: number;
+}
+
+export function usePlaylistStudentProgress(playlistId: string | null) {
+  return useQuery({
+    queryKey: ['playlist-student-progress', playlistId],
+    queryFn: async () => {
+      if (!playlistId) return [];
+
+      const enrollments = await fetchWithAuth(`/data/playlist_enrollments?playlist_id=${playlistId}`);
+      const videos = await fetchWithAuth(`/data/playlist_videos?playlist_id=${playlistId}`);
+      const totalModules = videos.length;
+
+      const students: StudentProgress[] = enrollments.map((enrollment: {
+        id: string;
+        user_id: string;
+        user_name?: string;
+        user_email?: string;
+        progress_percentage?: number;
+        completed_videos?: number;
+        last_watched_at?: string;
+        enrolled_at?: string;
+        current_video_title?: string;
+        time_spent_minutes?: number;
+      }) => {
+        const completedModules = enrollment.completed_videos || 0;
+        const overallProgress = enrollment.progress_percentage || 0;
+
+        let status: StudentProgress['status'] = 'inactive';
+        if (overallProgress === 100) {
+          status = 'completed';
+        } else if (overallProgress > 0) {
+          const daysSinceActive = enrollment.last_watched_at
+            ? Math.floor((Date.now() - new Date(enrollment.last_watched_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          status = daysSinceActive > 7 ? 'stuck' : 'active';
+        }
+
+        return {
+          id: enrollment.id,
+          studentId: enrollment.user_id,
+          studentName: enrollment.user_name || 'Unknown Student',
+          studentEmail: enrollment.user_email || '',
+          enrolledAt: enrollment.enrolled_at || new Date().toISOString(),
+          lastActiveAt: enrollment.last_watched_at || enrollment.enrolled_at || new Date().toISOString(),
+          overallProgress,
+          completedModules,
+          totalModules,
+          currentModuleIndex: Math.floor((overallProgress / 100) * totalModules),
+          currentVideoTitle: enrollment.current_video_title,
+          watchedPercentage: overallProgress,
+          status,
+          timeSpentMinutes: enrollment.time_spent_minutes || 0
+        };
+      });
+
+      return students;
+    },
+    enabled: !!playlistId,
+  });
+}
+
+export function useSendReminder() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ studentId, playlistId }: { studentId: string; playlistId: string }) => {
+      return fetchWithAuth('/data/send-reminder', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: studentId, playlist_id: playlistId }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Reminder sent successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error sending reminder', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export interface InstructorStudent {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  enrolledPlaylists: number;
+  completedPlaylists: number;
+  inProgressPlaylists: number;
+  totalWatchTimeMinutes: number;
+  lastActiveAt: string;
+  overallProgress: number;
+  status: 'active' | 'inactive' | 'at-risk' | 'completed';
+  enrolledAt: string;
+  certificates: number;
+  playlistEnrollments: {
+    playlistId: string;
+    playlistTitle: string;
+    progress: number;
+    lastWatchedAt: string;
+  }[];
+}
+
+export function useInstructorAllStudents() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['instructor-all-students', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const playlists = await fetchWithAuth(`/data/playlists?created_by=${user.id}`);
+      const playlistIds = playlists.map((p: Playlist) => p.id);
+
+      if (playlistIds.length === 0) return [];
+
+      const allEnrollments = await Promise.all(
+        playlistIds.map(async (playlistId: string) => {
+          const enrollments = await fetchWithAuth(`/data/playlist_enrollments?playlist_id=${playlistId}`);
+          return enrollments.map((e: Record<string, unknown>) => ({
+            ...e,
+            playlistId,
+            playlistTitle: playlists.find((p: Playlist) => p.id === playlistId)?.title || 'Unknown'
+          }));
+        })
+      );
+
+      const flattenedEnrollments = allEnrollments.flat();
+
+      const studentMap = new Map<string, InstructorStudent>();
+
+      flattenedEnrollments.forEach((enrollment: Record<string, unknown>) => {
+        const userId = enrollment.user_id as string;
+
+        if (studentMap.has(userId)) {
+          const existing = studentMap.get(userId)!;
+          existing.enrolledPlaylists += 1;
+
+          const progress = enrollment.progress_percentage as number || 0;
+          if (progress === 100) {
+            existing.completedPlaylists += 1;
+          } else if (progress > 0) {
+            existing.inProgressPlaylists += 1;
+          }
+
+          existing.overallProgress = Math.round(
+            (existing.overallProgress + progress) / existing.enrolledPlaylists
+          );
+
+          existing.totalWatchTimeMinutes += enrollment.time_spent_minutes as number || 0;
+
+          const lastWatched = new Date(enrollment.last_watched_at as string || enrollment.enrolled_at as string);
+          const existingLastWatched = new Date(existing.lastActiveAt);
+          if (lastWatched > existingLastWatched) {
+            existing.lastActiveAt = enrollment.last_watched_at as string || enrollment.enrolled_at as string;
+          }
+
+          existing.playlistEnrollments.push({
+            playlistId: enrollment.playlistId as string,
+            playlistTitle: enrollment.playlistTitle as string,
+            progress: progress,
+            lastWatchedAt: enrollment.last_watched_at as string || enrollment.enrolled_at as string
+          });
+        } else {
+          const progress = enrollment.progress_percentage as number || 0;
+          const status: InstructorStudent['status'] = progress === 100
+            ? 'completed'
+            : progress > 0
+              ? 'active'
+              : 'inactive';
+
+          studentMap.set(userId, {
+            id: enrollment.id as string,
+            userId: userId,
+            name: enrollment.user_name as string || 'Unknown Student',
+            email: enrollment.user_email as string || '',
+            avatarUrl: undefined,
+            enrolledPlaylists: 1,
+            completedPlaylists: progress === 100 ? 1 : 0,
+            inProgressPlaylists: progress > 0 && progress < 100 ? 1 : 0,
+            totalWatchTimeMinutes: enrollment.time_spent_minutes as number || 0,
+            lastActiveAt: enrollment.last_watched_at as string || enrollment.enrolled_at as string,
+            overallProgress: progress,
+            status,
+            enrolledAt: enrollment.enrolled_at as string || new Date().toISOString(),
+            certificates: progress === 100 ? 1 : 0,
+            playlistEnrollments: [{
+              playlistId: enrollment.playlistId as string,
+              playlistTitle: enrollment.playlistTitle as string,
+              progress: progress,
+              lastWatchedAt: enrollment.last_watched_at as string || enrollment.enrolled_at as string
+            }]
+          });
+        }
+      });
+
+      const students = Array.from(studentMap.values()).map(student => {
+        const daysSinceActive = Math.floor(
+          (Date.now() - new Date(student.lastActiveAt).getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        let status: InstructorStudent['status'] = student.status;
+        if (status !== 'completed') {
+          if (daysSinceActive > 7) {
+            status = 'at-risk';
+          } else if (daysSinceActive > 14) {
+            status = 'inactive';
+          }
+        }
+
+        return { ...student, status };
+      });
+
+      return students;
+    },
+    enabled: !!user?.id,
+  });
+}
+
+export function useInstructorStudentStats() {
+  const { data: students, isLoading } = useInstructorAllStudents();
+
+  const stats = {
+    totalStudents: 0,
+    activeStudents: 0,
+    completedStudents: 0,
+    atRiskStudents: 0,
+    inactiveStudents: 0,
+    totalWatchTimeMinutes: 0,
+    avgProgress: 0,
+    totalEnrollments: 0
+  };
+
+  if (students && students.length > 0) {
+    stats.totalStudents = students.length;
+    stats.activeStudents = students.filter(s => s.status === 'active').length;
+    stats.completedStudents = students.filter(s => s.status === 'completed').length;
+    stats.atRiskStudents = students.filter(s => s.status === 'at-risk').length;
+    stats.inactiveStudents = students.filter(s => s.status === 'inactive').length;
+    stats.totalWatchTimeMinutes = students.reduce((acc, s) => acc + s.totalWatchTimeMinutes, 0);
+    stats.totalEnrollments = students.reduce((acc, s) => acc + s.enrolledPlaylists, 0);
+    stats.avgProgress = Math.round(
+      students.reduce((acc, s) => acc + s.overallProgress, 0) / students.length
+    );
+  }
+
+  return { stats, isLoading };
+}
+
+export interface DoubtReply {
+  id: string;
+  doubt_id: string;
+  user_id: string;
+  user_name?: string;
+  user_email?: string;
+  answer: string;
+  is_instructor: boolean;
+  is_pinned: boolean;
+  created_at: string;
+}
+
+export interface Doubt {
+  id: string;
+  playlist_id: string;
+  video_id?: string;
+  video_title?: string;
+  user_id: string;
+  student_name?: string;
+  student_email?: string;
+  question: string;
+  status: 'pending' | 'answered' | 'solved';
+  is_pinned: boolean;
+  created_at: string;
+  replies?: DoubtReply[];
+}
+
+export function useDoubts(playlistId?: string | null) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['instructor-doubts', user?.id, playlistId],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const playlists = await fetchWithAuth(`/data/playlists?created_by=${user.id}`);
+      const playlistIds = playlists.map((p: Playlist) => p.id);
+
+      if (playlistIds.length === 0) return [];
+
+      const allDoubts = await Promise.all(
+        playlistIds.map(async (pid: string) => {
+          const doubts = await fetchWithAuth(`/data/doubts?playlist_id=${pid}&order=created_at.desc`);
+          return doubts;
+        })
+      );
+
+      const doubts = allDoubts.flat();
+
+      const doubtsWithReplies = await Promise.all(
+        doubts.map(async (doubt: Doubt) => {
+          const replies = await fetchWithAuth(`/data/doubt_replies?doubt_id=${doubt.id}&order=created_at.asc`);
+          return { ...doubt, replies };
+        })
+      );
+
+      return doubtsWithReplies as Doubt[];
+    },
+    enabled: !!user?.id,
+  });
+}
+
+export function useReplyToDoubt() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ doubt_id, answer, is_instructor }: { doubt_id: string; answer: string; is_instructor: boolean }) => {
+      return fetchWithAuth('/data/doubt_replies', {
+        method: 'POST',
+        body: JSON.stringify({
+          doubt_id,
+          user_id: user?.id,
+          answer,
+          is_instructor
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-doubts'] });
+      toast({ title: 'Reply posted successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error posting reply', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useMarkDoubtSolved() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (doubt_id: string) => {
+      return fetchWithAuth(`/data/doubts/${doubt_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'solved' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-doubts'] });
+      toast({ title: 'Doubt marked as solved' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error marking doubt as solved', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function usePinDoubtAnswer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ doubt_id, reply_id }: { doubt_id: string; reply_id: string }) => {
+      await fetchWithAuth(`/data/doubt_replies/${reply_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_pinned: true }),
+      });
+      await fetchWithAuth(`/data/doubts/${doubt_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_pinned: true }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-doubts'] });
+      toast({ title: 'Answer pinned successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error pinning answer', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteDoubt() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (doubt_id: string) => {
+      await fetchWithAuth(`/data/doubts/${doubt_id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-doubts'] });
+      toast({ title: 'Doubt deleted successfully', variant: 'destructive' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error deleting doubt', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useGrantAccess() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ courseId, studentId }: { courseId: string, studentId: string }) => {
+      // First, check if the student profile exists (validation)
+      const profiles = await fetchWithAuth(`/data/profiles?id=eq.${studentId}`);
+      if (!profiles || profiles.length === 0) {
+        throw new Error('Student UUID not found. Please verify the ID.');
+      }
+
+      return fetchWithAuth('/data/course_enrollments', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: studentId,
+          course_id: courseId,
+          status: 'active',
+          progress_percentage: 0
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
+      toast({
+        title: "Access Granted",
+        description: "The student has been successfully enrolled in this course.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Enrollment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useStudentLookup(studentId: string) {
+  return useQuery({
+    queryKey: ['student-lookup', studentId],
+    queryFn: async () => {
+      if (!studentId || studentId.length < 32) return null;
+
+      // Fetch profile and user details via backend
+      // We'll use a specific endpoint or generic data endpoint
+      const profiles = await fetchWithAuth(`/data/profiles?id=eq.${studentId}`);
+      if (!profiles || profiles.length === 0) {
+        throw new Error('Student not found');
+      }
+
+      const profile = profiles[0];
+
+      // Since we need email which might be in auth.users, and our profile table 
+      // might have it or the backend /user/profile might help, 
+      // let's assume the profile at least has name and avatar.
+      return {
+        id: profile.id,
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
+        // If email isn't in profiles, we might need a backend tweak or just show what we have
+        email: profile.email || 'Click to verify'
+      };
+    },
+    enabled: !!studentId && studentId.length >= 32,
+    retry: false
+  });
+}
+
+export function useInstructorLiveClasses() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Realtime sync for live classes
+    const channel = supabase
+      .channel('live-classes-instructor')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'live_classes',
+          filter: `instructor_id=eq.${user.id}`
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['instructor-live-classes', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
+
+  return useQuery({
+    queryKey: ['instructor-live-classes', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return fetchWithAuth(`/data/live_classes?instructor_id=eq.${user.id}&order=scheduled_at.desc`);
+    },
+    enabled: !!user?.id,
+  });
+}
+
+export function useCreateLiveClass() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (payload: { topic: string; startTime: string; duration: number; agenda: string; courseId?: string }) => {
+      if (!user?.id) throw new Error('You must be logged in to schedule meetings');
+
+      // 1. Create Zoom Meeting via our specific backend endpoint
+      const zoomData = await fetchWithAuth('/zoom/meetings', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: payload.topic,
+          startTime: payload.startTime,
+          duration: payload.duration,
+          agenda: payload.agenda
+        })
+      });
+
+      // 2. Save meeting metadata to our persistent live_classes table in Supabase
+      return fetchWithAuth('/data/live_classes', {
+        method: 'POST',
+        body: JSON.stringify({
+          instructor_id: user.id,
+          course_id: payload.courseId || null,
+          title: payload.topic,
+          description: payload.agenda,
+          scheduled_at: payload.startTime,
+          duration_minutes: payload.duration,
+          meeting_id: zoomData.meetingId.toString(),
+          meeting_url: zoomData.joinUrl,
+          start_url: zoomData.startUrl,
+          meeting_password: zoomData.password,
+          status: 'scheduled'
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-live-classes'] });
+      toast({
+        title: "Meeting Scheduled!",
+        description: "Your session and Zoom link have been generated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Zoom Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
 }

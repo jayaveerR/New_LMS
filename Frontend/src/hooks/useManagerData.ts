@@ -1,3 +1,4 @@
+import { fetchWithAuth } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
@@ -159,36 +160,6 @@ export interface ExamResult {
 
 // ─── Fetch helper ───────────────────────────────────────────────────────────
 
-const API_URL = 'http://localhost:5000/api';
-
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('access_token');
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-    ...(options.headers as Record<string, string> || {}),
-  };
-  const res = await fetch(`${API_URL}${url}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_role');
-      window.location.reload();
-      throw new Error('Session expired. Please login again.');
-    }
-
-    let errorMessage = 'API Request Failed';
-    try {
-      const err = await res.json();
-      errorMessage = err.error || err.message || errorMessage;
-    } catch (e) {
-      errorMessage = `Server Error (${res.status})`;
-    }
-    throw new Error(errorMessage);
-  }
-  return res.json();
-};
 
 // Safe version: returns empty array on error (for tables that may not exist yet)
 const safeFetchWithAuth = async (url: string, options: RequestInit = {}) => {
@@ -632,5 +603,40 @@ export function useCreateLeaderboardAudit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaderboard-audit'] });
     },
+  });
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. STUDENT ACCESS MANAGEMENT — Grant lookup and access via UUID
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function useLookupStudent(studentId: string | null) {
+  return useQuery({
+    queryKey: ['student-lookup', studentId],
+    queryFn: () => fetchWithAuth(`/manager/lookup-student/${studentId}`),
+    enabled: !!studentId,
+    retry: false,
+  });
+}
+
+export function useGrantExamAccess() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (data: { studentId: string; examId?: string; mockPaperId?: string }) =>
+      fetchWithAuth('/manager/grant-exam-access', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accessible-exams'] });
+      toast({ title: 'Access granted successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error granting access', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useAccessibleExams() {
+  return useQuery({
+    queryKey: ['accessible-exams'],
+    queryFn: () => fetchWithAuth('/student/accessible-exams'),
   });
 }

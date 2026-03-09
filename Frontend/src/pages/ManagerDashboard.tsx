@@ -14,6 +14,8 @@ import { ExamMonitoring } from "@/components/manager/ExamMonitoring";
 import { AccessControlManager } from "@/components/manager/AccessControlManager";
 import { CourseMonitoring } from "@/components/manager/CourseMonitoring";
 import { ExamRulesManager } from "@/components/manager/ExamRulesManager";
+import { ManagerCourses } from "@/components/manager/ManagerCourses";
+import { QuestionBankStudentAccess } from "@/components/manager/QuestionBankStudentAccess";
 import {
   Card,
   CardContent,
@@ -21,7 +23,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import AmbientBackground from "@/components/ui/AmbientBackground";
 import {
   CalendarCheck,
   BookOpen,
@@ -30,12 +31,14 @@ import {
   UserPlus,
   Shield,
   MonitorPlay,
+  Video,
   Gavel,
   Server,
   Settings,
   ChevronRight,
   Activity,
   Plus,
+  KeyRound,
 } from "lucide-react";
 import {
   useExams,
@@ -81,7 +84,7 @@ export default function ManagerDashboard() {
   }
 
   if (userRole !== "manager" && userRole !== "admin") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/student-dashboard" replace />;
   }
 
   const activeExamsCount = exams.filter((e) => e.status === "active").length;
@@ -183,7 +186,7 @@ export default function ManagerDashboard() {
             <CardDescription>Commonly used management tools</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 {
                   id: "exams",
@@ -214,6 +217,13 @@ export default function ManagerDashboard() {
                   color: "text-rose-500",
                 },
                 {
+                  id: "student-access",
+                  label: "Student Access",
+                  icon: KeyRound,
+                  desc: "Grant question bank access",
+                  color: "text-teal-500",
+                },
+                {
                   id: "guests",
                   label: "Guest Access",
                   icon: UserPlus,
@@ -227,16 +237,27 @@ export default function ManagerDashboard() {
                   desc: "Configure proctoring",
                   color: "text-slate-600",
                 },
+                {
+                  id: "video-library",
+                  label: "Video Library",
+                  icon: Video,
+                  desc: "Cloud media manager",
+                  color: "text-indigo-500",
+                },
               ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className="group flex flex-col p-4 rounded-xl border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all text-left"
+                  className={cn(
+                    "group flex flex-col p-4 rounded-xl border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all text-left",
+                    item.id === "student-access" && "border-teal-200 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-50"
+                  )}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div
                       className={cn(
                         "h-9 w-9 rounded-lg flex items-center justify-center bg-muted transition-colors group-hover:bg-primary/10",
+                        item.id === "student-access" && "bg-teal-100 group-hover:bg-teal-200"
                       )}
                     >
                       <item.icon className={cn("h-4 w-4", item.color)} />
@@ -245,6 +266,11 @@ export default function ManagerDashboard() {
                   </div>
                   <p className="font-semibold text-sm">{item.label}</p>
                   <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  {item.id === "student-access" && (
+                    <span className="mt-2 inline-flex items-center text-[10px] font-bold text-teal-600 uppercase tracking-wide">
+                      ✦ Grant Access
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -339,22 +365,25 @@ export default function ManagerDashboard() {
         return <CourseMonitoring />;
       case "exam-rules":
         return <ExamRulesManager />;
+      case "student-access":
+        return <QuestionBankStudentAccess />;
+      case "video-library":
+        return <ManagerCourses />;
       default:
         return renderOverview();
     }
   };
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-screen overflow-hidden">
       <ManagerSidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
       />
-      <SidebarInset>
-        <AmbientBackground />
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         <ManagerHeader />
-        <main className="flex-1 p-6 sm:p-8 lg:p-10 overflow-auto">
-          <div className="max-w-6xl mx-auto">{renderContent()}</div>
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-10">
+          <div className="max-w-6xl mx-auto h-full">{renderContent()}</div>
         </main>
       </SidebarInset>
     </SidebarProvider>

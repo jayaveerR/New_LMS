@@ -64,7 +64,7 @@ import { cn } from '@/lib/utils';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const N8N_WEBHOOK = 'https://jayaveer12.app.n8n.cloud/webhook-test/Aotms';
+const N8N_WEBHOOK = 'https://aotms.app.n8n.cloud/webhook/Aotms';
 
 const DIFFICULTY_COLOR = {
   easy: 'text-emerald-500',
@@ -693,17 +693,26 @@ export function QuestionBankManager() {
       // 1. Save Questions
       const questionsToSave = batchQuestions
         .filter(q => q.question_text.trim())
-        .map(q => ({
-          topic: quizTitle || globalTopic,
-          question_text: q.question_text,
-          question_type: globalType,
-          difficulty: globalDifficulty,
-          options: globalType === 'mcq' ? (Array.isArray(q.options) ? q.options.filter(o => o.trim()) : q.options) : null,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation || null,
-          marks: Number(globalMarks),
-          created_by: user.id,
-        }));
+        .map(q => {
+          // Map UI types to DB constraints if needed
+          let type = globalType;
+          if (type === 'short') type = 'short_answer';
+          if (type === 'long') type = 'long_answer';
+
+          return {
+            topic: quizTitle || globalTopic,
+            question_text: q.question_text,
+            question_type: type,
+            difficulty: globalDifficulty,
+            options: globalType === 'mcq' ? (Array.isArray(q.options) ? q.options.filter(o => o?.trim()) : q.options) : null,
+            correct_answer: q.correct_answer || '',
+            explanation: q.explanation || null,
+            marks: Number(globalMarks) || 1,
+            created_by: user.id,
+            approval_status: 'pending',
+            is_active: false
+          };
+        });
 
       if (questionsToSave.length === 0) throw new Error("No valid questions to save");
 
@@ -718,14 +727,17 @@ export function QuestionBankManager() {
         question_count: questionsToSave.length,
         duration_minutes: 30,
         difficulty_mix: { easy: 33, medium: 33, hard: 34 },
-        is_active: true,
+        is_active: false, // Wait for admin activation
         created_by: user.id,
       });
 
       setBatchQuestions([]);
       setGlobalPrompt('');
       setIsSaveWizardOpen(false);
-      toast({ title: "Quiz Batch Saved Successfully" });
+      toast({
+        title: "Quiz Batch Submitted",
+        description: "Sent to admin for approval and activation."
+      });
     } catch (error) {
       toast({
         title: "Save Failed",
@@ -1338,8 +1350,8 @@ export function QuestionBankManager() {
 
       {/* ─── Save Wizard Dialog ─── */}
       <Dialog open={isSaveWizardOpen} onOpenChange={setIsSaveWizardOpen}>
-        <DialogContent className="sm:max-w-3xl overflow-hidden p-0 border-0 rounded-[2.5rem] shadow-2xl">
-          <div className="flex h-[600px]">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-hidden p-0 border-0 rounded-[2.5rem] shadow-2xl flex flex-col">
+          <div className="flex h-full w-full overflow-hidden min-h-[500px]">
             {/* Steps Left Panel */}
             <div className="w-[28%] bg-muted/30 p-10 border-r space-y-10 relative overflow-hidden flex flex-col">
               {/* Decorative Circle for Left Panel */}
@@ -1374,105 +1386,107 @@ export function QuestionBankManager() {
             </div>
 
             {/* Content Right Panel */}
-            <div className="flex-1 p-12 flex flex-col bg-background relative overflow-hidden">
-              {/* Background Decorative Gradients */}
-              <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full -mr-40 -mt-40 blur-[100px] pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-500/5 rounded-full -ml-20 -mb-20 blur-[60px] pointer-events-none" />
+            <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
+              <div className="flex-1 p-12 pt-10 overflow-y-auto custom-scrollbar">
+                {/* Background Decorative Gradients */}
+                <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full -mr-40 -mt-40 blur-[100px] pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-500/5 rounded-full -ml-20 -mb-20 blur-[60px] pointer-events-none" />
 
-              <DialogHeader className="mb-8 relative z-10 text-left">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 rotate-6 shadow-lg shadow-primary/5 border border-primary/20 transition-transform hover:rotate-0 duration-500">
-                  <ClipboardList className="h-7 w-7 text-primary" />
-                </div>
-                <div className="space-y-1">
-                  <DialogTitle className="text-3xl font-black tracking-tight italic leading-none">
-                    {saveWizardStep === 1 && "QUIZ INTEL"}
-                    {saveWizardStep === 2 && "PREVIEW MODE"}
-                    {saveWizardStep === 3 && "EXPORT READY"}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm font-semibold text-muted-foreground">
-                    {saveWizardStep === 1 && "Define the metadata for this learning module."}
-                    {saveWizardStep === 2 && "Inspect the batch before committing to deep storage."}
-                    {saveWizardStep === 3 && "Verification complete. Proceed to finalize."}
-                  </DialogDescription>
-                </div>
-              </DialogHeader>
-
-              <div className="flex-1 relative z-10 flex flex-col justify-start pt-2">
-                {saveWizardStep === 1 && (
-                  <div className="space-y-8 animate-in slide-in-from-right-8 duration-500">
-                    <div className="space-y-3 relative group">
-                      <div className="flex items-center justify-between px-1">
-                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-primary transition-all">Title of Batch</Label>
-                        <Badge variant="outline" className="text-[8px] font-black uppercase opacity-40 group-focus-within:opacity-100 transition-opacity rounded-full px-2 py-0">REQUIRED</Badge>
-                      </div>
-                      <Input
-                        placeholder="e.g. Backend Architecture Mastery"
-                        className="h-14 rounded-2xl text-lg font-bold border-2 bg-muted/10 focus:bg-background focus:ring-8 focus:ring-primary/5 transition-all px-6 border-muted/50 focus:border-primary shadow-sm"
-                        value={quizTitle}
-                        onChange={(e) => setQuizTitle(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="space-y-3 relative group">
-                      <div className="flex items-center justify-between px-1">
-                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground group-focus-within:text-primary transition-all">Short Description</Label>
-                        <Badge variant="outline" className="text-[8px] font-black uppercase opacity-20 rounded-full px-2 py-0">OPTIONAL</Badge>
-                      </div>
-                      <Textarea
-                        placeholder="Provide context or learning objectives..."
-                        rows={5}
-                        className="resize-none rounded-2xl border-2 bg-muted/10 focus:bg-background focus:ring-8 focus:ring-primary/5 transition-all text-sm font-medium p-5 border-muted/50 focus:border-primary shadow-sm leading-relaxed"
-                        value={quizDescription}
-                        onChange={(e) => setQuizDescription(e.target.value)}
-                      />
-                    </div>
+                <DialogHeader className="mb-8 relative z-10 text-left">
+                  <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 rotate-6 shadow-lg shadow-primary/5 border border-primary/20 transition-transform hover:rotate-0 duration-500">
+                    <ClipboardList className="h-7 w-7 text-primary" />
                   </div>
-                )}
+                  <div className="space-y-1">
+                    <DialogTitle className="text-3xl font-black tracking-tight italic leading-none">
+                      {saveWizardStep === 1 && "QUIZ INTEL"}
+                      {saveWizardStep === 2 && "PREVIEW MODE"}
+                      {saveWizardStep === 3 && "EXPORT READY"}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm font-semibold text-muted-foreground">
+                      {saveWizardStep === 1 && "Define the metadata for this learning module."}
+                      {saveWizardStep === 2 && "Inspect the batch before committing to deep storage."}
+                      {saveWizardStep === 3 && "Verification complete. Proceed to finalize."}
+                    </DialogDescription>
+                  </div>
+                </DialogHeader>
 
-                {saveWizardStep === 2 && (
-                  <div className="animate-in slide-in-from-right-8 duration-500 py-4">
-                    <Card className="border-2 border-primary/20 shadow-2xl shadow-primary/5 rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-background via-muted/5 to-muted/20">
-                      <CardContent className="p-8 space-y-8">
-                        <div className="flex items-start justify-between gap-6">
-                          <div className="space-y-3">
-                            <h4 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{quizTitle || 'Untitled Batch'}</h4>
-                            <p className="text-sm text-muted-foreground font-medium leading-relaxed italic pr-4 max-h-[80px] overflow-hidden line-clamp-3">
-                              {quizDescription || 'No description provided.'}
-                            </p>
-                          </div>
-                          <Badge className="bg-primary hover:bg-primary h-10 px-5 rounded-[1.2rem] font-black shadow-lg shadow-primary/20 text-[10px] tracking-widest shrink-0">
-                            {batchQuestions.length} ITEMS
-                          </Badge>
+                <div className="flex-1 relative z-10 flex flex-col justify-start pt-2">
+                  {saveWizardStep === 1 && (
+                    <div className="space-y-8 animate-in slide-in-from-right-8 duration-500">
+                      <div className="space-y-3 relative group">
+                        <div className="flex items-center justify-between px-1">
+                          <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-primary transition-all">Title of Batch</Label>
+                          <Badge variant="outline" className="text-[8px] font-black uppercase opacity-40 group-focus-within:opacity-100 transition-opacity rounded-full px-2 py-0">REQUIRED</Badge>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 pt-8 border-t border-primary/10 font-black uppercase text-[9px] tracking-[0.25em] text-muted-foreground">
-                          <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 text-primary">
-                            <Brain className="h-5 w-5" />
-                            {globalType.toUpperCase()}
-                          </div>
-                          <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 text-primary">
-                            <Layers className="h-5 w-5" />
-                            {globalTopic}
-                          </div>
+                        <Input
+                          placeholder="e.g. Backend Architecture Mastery"
+                          className="h-14 rounded-2xl text-lg font-bold border-2 bg-muted/10 focus:bg-background focus:ring-8 focus:ring-primary/5 transition-all px-6 border-muted/50 focus:border-primary shadow-sm"
+                          value={quizTitle}
+                          onChange={(e) => setQuizTitle(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="space-y-3 relative group">
+                        <div className="flex items-center justify-between px-1">
+                          <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground group-focus-within:text-primary transition-all">Short Description</Label>
+                          <Badge variant="outline" className="text-[8px] font-black uppercase opacity-20 rounded-full px-2 py-0">OPTIONAL</Badge>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
+                        <Textarea
+                          placeholder="Provide context or learning objectives..."
+                          rows={5}
+                          className="resize-none rounded-2xl border-2 bg-muted/10 focus:bg-background focus:ring-8 focus:ring-primary/5 transition-all text-sm font-medium p-5 border-muted/50 focus:border-primary shadow-sm leading-relaxed"
+                          value={quizDescription}
+                          onChange={(e) => setQuizDescription(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                {saveWizardStep === 3 && (
-                  <div className="flex flex-col items-center justify-center space-y-8 animate-in zoom-in-95 duration-700 py-6">
-                    <div className="h-32 w-32 rounded-[3rem] bg-emerald-500 flex items-center justify-center shadow-[0_25px_60px_rgba(16,185,129,0.35)] rotate-12 relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
-                      <CheckCircle className="h-16 w-16 text-white -rotate-12 relative z-10" />
+                  {saveWizardStep === 2 && (
+                    <div className="animate-in slide-in-from-right-8 duration-500 py-4">
+                      <Card className="border-2 border-primary/20 shadow-2xl shadow-primary/5 rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-background via-muted/5 to-muted/20">
+                        <CardContent className="p-8 space-y-8">
+                          <div className="flex items-start justify-between gap-6">
+                            <div className="space-y-3">
+                              <h4 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{quizTitle || 'Untitled Batch'}</h4>
+                              <p className="text-sm text-muted-foreground font-medium leading-relaxed italic pr-4 max-h-[80px] overflow-hidden line-clamp-3">
+                                {quizDescription || 'No description provided.'}
+                              </p>
+                            </div>
+                            <Badge className="bg-primary hover:bg-primary h-10 px-5 rounded-[1.2rem] font-black shadow-lg shadow-primary/20 text-[10px] tracking-widest shrink-0">
+                              {batchQuestions.length} ITEMS
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 pt-8 border-t border-primary/10 font-black uppercase text-[9px] tracking-[0.25em] text-muted-foreground">
+                            <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 text-primary">
+                              <Brain className="h-5 w-5" />
+                              {globalType.toUpperCase()}
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 text-primary">
+                              <Layers className="h-5 w-5" />
+                              {globalTopic}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                    <div className="space-y-3 text-center">
-                      <h4 className="text-2xl font-black tracking-tighter italic text-foreground uppercase">Storage Ready</h4>
-                      <p className="text-sm text-muted-foreground font-medium max-w-[280px] leading-relaxed mx-auto">
-                        Your questions will be indexed as <span className="text-foreground font-bold underline decoration-primary decoration-4 underline-offset-4">{quizTitle}</span>.
-                      </p>
+                  )}
+
+                  {saveWizardStep === 3 && (
+                    <div className="flex flex-col items-center justify-center space-y-8 animate-in zoom-in-95 duration-700 py-6">
+                      <div className="h-32 w-32 rounded-[3rem] bg-emerald-500 flex items-center justify-center shadow-[0_25px_60px_rgba(16,185,129,0.35)] rotate-12 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                        <CheckCircle className="h-16 w-16 text-white -rotate-12 relative z-10" />
+                      </div>
+                      <div className="space-y-3 text-center">
+                        <h4 className="text-2xl font-black tracking-tighter italic text-foreground uppercase">Storage Ready</h4>
+                        <p className="text-sm text-muted-foreground font-medium max-w-[280px] leading-relaxed mx-auto">
+                          Your questions will be indexed as <span className="text-foreground font-bold underline decoration-primary decoration-4 underline-offset-4">{quizTitle}</span>.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               <DialogFooter className="mt-auto pt-8 border-t border-muted/50 gap-4 relative z-10 bg-background/80 backdrop-blur-sm -mx-12 px-12 pb-2">

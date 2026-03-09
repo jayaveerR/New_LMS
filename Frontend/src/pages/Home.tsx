@@ -9,13 +9,11 @@ import Testimonials from "@/components/landing/Testimonials";
 import FAQSection from "@/components/landing/FAQSection";
 import CTASection from "@/components/landing/CTASection";
 import Footer from "@/components/landing/Footer";
-import AmbientBackground from "@/components/ui/AmbientBackground";
 
 const Home = () => {
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-white">
       <div id="home-content" className="bg-background relative z-10">
-        <AmbientBackground />
 
         <Header />
         <main>

@@ -63,7 +63,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const examSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  exam_type: z.enum(['live', 'mock', 'practice']),
+  exam_type: z.enum(['live', 'mock', 'practice', 'question_bank']),
   assigned_image: z.string().optional(),
   scheduled_date: z.string().refine((val) => new Date(val) > new Date(), {
     message: 'Scheduled date must be in the future',
@@ -265,6 +265,7 @@ export function ExamScheduler() {
                                 <SelectItem value="live">Live Proctored</SelectItem>
                                 <SelectItem value="mock">Mock Test</SelectItem>
                                 <SelectItem value="practice">Practice Set</SelectItem>
+                                <SelectItem value="question_bank">Question Bank Manager</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

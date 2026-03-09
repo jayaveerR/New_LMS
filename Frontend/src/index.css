@@ -41,21 +41,15 @@
     --radius: 0.75rem;
 
     /* Gradients */
-    --gradient-orange: linear-gradient(
-      135deg,
-      hsl(24 95% 53%) 0%,
-      hsl(28 100% 60%) 100%
-    );
-    --gradient-blue: linear-gradient(
-      135deg,
-      hsl(229 71% 50%) 0%,
-      hsl(235 80% 60%) 100%
-    );
-    --gradient-hero: linear-gradient(
-      135deg,
-      hsl(0 0% 100%) 0%,
-      hsl(229 30% 97%) 100%
-    );
+    --gradient-orange: linear-gradient(135deg,
+        hsl(24 95% 53%) 0%,
+        hsl(28 100% 60%) 100%);
+    --gradient-blue: linear-gradient(135deg,
+        hsl(229 71% 50%) 0%,
+        hsl(235 80% 60%) 100%);
+    --gradient-hero: linear-gradient(135deg,
+        hsl(0 0% 100%) 0%,
+        hsl(229 30% 97%) 100%);
 
     /* Shadows */
     --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.08);
@@ -104,34 +98,7 @@
   }
 }
 
-/* ── Ambient Background Animations ── */
-
-@keyframes ambientDrift {
-  0% {
-    background-position:
-      0% 0%,
-      100% 0%,
-      60% 100%,
-      0% 100%;
-    transform: scale(1);
-  }
-  50% {
-    background-position:
-      10% 10%,
-      85% 20%,
-      50% 80%,
-      20% 65%;
-    transform: scale(1.02);
-  }
-  100% {
-    background-position:
-      5% 15%,
-      90% 10%,
-      55% 90%,
-      15% 70%;
-    transform: scale(1);
-  }
-}
+/* AOTMS Design System */
 
 @layer components {
   .section-padding {
@@ -162,11 +129,9 @@
   }
 
   .gradient-text-brand {
-    background: linear-gradient(
-      135deg,
-      hsl(229 71% 50%) 0%,
-      hsl(24 95% 53%) 100%
-    );
+    background: linear-gradient(135deg,
+        hsl(229 71% 50%) 0%,
+        hsl(24 95% 53%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -178,6 +143,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -188,6 +154,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }

@@ -1,0 +1,69 @@
+export const API_URL = 'http://localhost:5000/api';
+
+export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    let token = localStorage.getItem('access_token');
+
+    // Set up headers
+    const getHeaders = (t: string | null) => {
+        const h: any = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+        };
+        if (t) {
+            h['Authorization'] = `Bearer ${t}`;
+        }
+        return h;
+    };
+
+    let res = await fetch(`${API_URL}${url}`, { ...options, headers: getHeaders(token) });
+
+    // Handle token expiration specifically
+    if (res.status === 401 || res.status === 403) {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+            try {
+                // Try to refresh the session locally via backend
+                const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+
+                if (refreshRes.ok) {
+                    const data = await refreshRes.json();
+
+                    // Save new tokens
+                    token = data.session.access_token;
+                    localStorage.setItem('access_token', token);
+                    if (data.session.refresh_token) {
+                        localStorage.setItem('refresh_token', data.session.refresh_token);
+                    }
+
+                    // Retry original request with fresh token
+                    res = await fetch(`${API_URL}${url}`, { ...options, headers: getHeaders(token) });
+                } else {
+                    throw new Error('Refresh failed');
+                }
+            } catch (err) {
+                console.warn('Failed to refresh token automatically', err);
+                localStorage.clear();
+                window.location.href = '/auth';
+            }
+        } else {
+            console.warn('No refresh token found. Logging out legacy session.');
+            localStorage.clear();
+            window.location.href = '/auth';
+        }
+    }
+
+    if (!res.ok) {
+        let errStr = 'API Request Failed';
+        try {
+            const err = await res.json();
+            errStr = err.error || errStr;
+        } catch { }
+        throw new Error(errStr);
+    }
+
+    return res.json();
+};

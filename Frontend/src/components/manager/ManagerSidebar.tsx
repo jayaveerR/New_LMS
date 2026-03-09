@@ -28,6 +28,8 @@ import {
   BookOpen,
   Gavel,
   MonitorPlay,
+  Video,
+  KeyRound,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +43,7 @@ const examManagementItems = [
   { id: 'overview', title: 'Dashboard', icon: LayoutDashboard },
   { id: 'exams', title: 'Exam Scheduling', icon: Calendar },
   { id: 'questions', title: 'Question Bank', icon: FileQuestion },
+  { id: 'student-access', title: 'Student Access', icon: KeyRound },
   { id: 'mock-tests', title: 'Mock Tests', icon: ClipboardList },
   { id: 'exam-rules', title: 'Exam Rules', icon: Gavel },
 ];
@@ -54,6 +57,7 @@ const managementItems = [
 const monitoringItems = [
   { id: 'monitoring', title: 'Live Monitoring', icon: MonitorPlay },
   { id: 'course-monitoring', title: 'Course Progress', icon: BarChart3 },
+  { id: 'video-library', title: 'Video Library', icon: Video },
 ];
 
 export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSidebarProps) {
@@ -83,7 +87,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
           <img src={logo} alt="AOTMS Logo" className="h-8" />
-          
+
         </button>
       </SidebarHeader>
 

@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/s
 import logo from "@/assets/logo.png";
 
 // Pages with light backgrounds that need dark navbar text
-const lightBgPages = ["/learning-paths", "/auth", "/dashboard", "/instructor", "/manager", "/admin", "/about", "/assignments"];
+const lightBgPages = ["/", "/learning-paths", "/auth", "/student-dashboard", "/instructor", "/manager", "/admin", "/about", "/assignments"];
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -21,9 +21,16 @@ const navLinks = [
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const { user, userRole, signOut } = useAuth();
+  const { user, userRole, signOut, checkSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleDashboardClick = async (e: React.MouseEvent) => {
+    // If pending, refresh session to check for approval
+    if (user?.approval_status === 'pending') {
+      await checkSession();
+    }
+  };
 
   // Check if current page has a light background
   const hasLightBg = lightBgPages.some(page => location.pathname.startsWith(page));
@@ -115,7 +122,16 @@ const Header = () => {
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                   </div>
                   <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to={userRole === 'student' || !userRole ? "/dashboard" : userRole === 'admin' ? "/admin" : `/${userRole}`} className="flex items-center gap-2">
+                    <Link
+                      to={
+                        userRole === 'admin' ? "/admin" :
+                          userRole === 'instructor' ? "/instructor" :
+                            userRole === 'manager' ? "/manager" :
+                              "/student-dashboard"
+                      }
+                      onClick={handleDashboardClick}
+                      className="flex items-center gap-2"
+                    >
                       <LayoutDashboard className="h-4 w-4" />
                       <span>Dashboard</span>
                     </Link>
@@ -138,7 +154,7 @@ const Header = () => {
                 <Button variant="ghost" size="sm" className={`text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-6 rounded-full border-2 transition-all duration-300 hover:scale-105 hover:bg-transparent ${isScrolled || hasLightBg ? "text-foreground border-foreground/30 hover:border-primary hover:text-primary" : "text-white border-white/50 hover:border-white hover:text-white/90"}`} asChild>
                   <Link to="/auth">Login</Link>
                 </Button>
-                <Button variant="ghost" size="sm" className={`text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-6 rounded-full border-2 transition-all duration-300 animate-[pulse_3s_ease-in-out_infinite] hover:animate-none hover:scale-105 hover:bg-transparent ${isScrolled || hasLightBg ? "text-foreground border-foreground/30 hover:border-primary hover:text-primary" : "text-white border-white/50 hover:border-white hover:text-white/90"}`} asChild>
+                <Button variant="ghost" size="sm" className={`text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-6 rounded-full border-2 transition-all duration-300 hover:scale-105 hover:bg-transparent ${isScrolled || hasLightBg ? "text-foreground border-foreground/30 hover:border-primary hover:text-primary" : "text-white border-white/50 hover:border-white hover:text-white/90"}`} asChild>
                   <Link to="/auth">Sign Up</Link>
                 </Button>
               </div>
@@ -214,7 +230,15 @@ const Header = () => {
                       </div>
                       <SheetClose asChild>
                         <Button variant="ghost" className="w-full justify-start" asChild>
-                          <Link to="/dashboard">
+                          <Link
+                            to={
+                              userRole === 'admin' ? "/admin" :
+                                userRole === 'instructor' ? "/instructor" :
+                                  userRole === 'manager' ? "/manager" :
+                                    "/student-dashboard"
+                            }
+                            onClick={handleDashboardClick}
+                          >
                             <LayoutDashboard className="h-4 w-4 mr-2" />
                             Dashboard
                           </Link>

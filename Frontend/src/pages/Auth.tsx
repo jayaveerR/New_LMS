@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,9 +64,20 @@ export default function Auth() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showLoginConfirmPassword, setShowLoginConfirmPassword] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  const { userRole } = useAuth();
+  useEffect(() => {
+    if (user && !authLoading) {
+      if (userRole === 'admin') navigate('/admin');
+      else if (userRole === 'instructor') navigate('/instructor');
+      else if (userRole === 'manager') navigate('/manager');
+      else navigate('/student-dashboard');
+    }
+  }, [user, authLoading, userRole, navigate]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -104,8 +115,33 @@ export default function Auth() {
     } else {
       toast({ title: 'Welcome back!' });
       setLoading(false);
-      // specific redirection is handled by Dashboard component or could be returned by signIn
-      navigate('/dashboard');
+
+      // Fetch fresh role for redirection
+      const token = localStorage.getItem('access_token');
+      const roleRes = await fetch('http://localhost:5000/api/user/role', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      let role = 'student';
+      if (roleRes.ok) {
+        const roleData = await roleRes.json();
+        role = roleData.role;
+      }
+
+      const userStr = localStorage.getItem('user');
+      const userData = userStr ? JSON.parse(userStr) : null;
+
+      if (userData?.approval_status === 'pending') {
+        navigate('/pending-approval');
+      } else if (role === 'admin') {
+        navigate('/admin');
+      } else if (role === 'instructor') {
+        navigate('/instructor');
+      } else if (role === 'manager') {
+        navigate('/manager');
+      } else {
+        navigate('/student-dashboard');
+      }
     }
   };
 
@@ -123,8 +159,9 @@ export default function Auth() {
     } else {
       toast({
         title: 'Account Created!',
-        description: 'Please check your email to verify your account.',
+        description: 'Welcome to AOTMS LMS!',
       });
+      navigate('/pending-approval');
     }
   };
 

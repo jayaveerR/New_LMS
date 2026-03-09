@@ -1,3 +1,4 @@
+import { fetchWithAuth } from '@/lib/api';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -7,7 +8,8 @@ export interface Profile {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
-  status: 'active' | 'suspended' | 'pending';
+  status: 'active' | 'suspended';
+  approval_status: 'pending' | 'approved' | 'rejected' | 'suspended';
   last_active_at: string | null;
   created_at: string;
   role?: string;
@@ -26,13 +28,14 @@ export interface Course {
   description: string | null;
   instructor_id: string | null;
   instructor_name: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'disabled';
+  status: 'pending' | 'approved' | 'rejected' | 'disabled' | 'published' | 'draft';
   category: string | null;
   thumbnail_url: string | null;
-  submitted_at: string;
+  submitted_at?: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
   rejection_reason: string | null;
+  created_at: string;
 }
 
 export interface SecurityEvent {
@@ -66,30 +69,6 @@ export interface AdminStats {
   roleCounts: Record<string, number>;
 }
 
-const API_URL = 'http://localhost:5000/api';
-
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('access_token');
-  if (!token) throw new Error('No access token found');
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-    ...options.headers,
-  };
-  const res = await fetch(`${API_URL}${url}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_role');
-      window.location.reload();
-      throw new Error('Session expired. Please login again.');
-    }
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'API Request Failed');
-  }
-  return res.json();
-};
 
 export function useAdminData() {
   const { toast } = useToast();
@@ -116,14 +95,26 @@ export function useAdminData() {
       const [profilesData, rolesData, coursesData, eventsData, logsData] = await Promise.all([
         fetchWithAuth('/data/profiles?sort=created_at&order=desc'),
         fetchWithAuth('/data/user_roles'),
-        fetchWithAuth('/data/courses?sort=submitted_at&order=desc'),
+        fetchWithAuth('/data/courses?sort=created_at&order=desc'),
         fetchWithAuth('/data/security_events?sort=created_at&order=desc&limit=50'),
         fetchWithAuth('/data/system_logs?sort=created_at&order=desc&limit=100'),
       ]);
 
-      if (profilesData) setProfiles(profilesData as Profile[]);
-      if (rolesData) {
+      if (profilesData && rolesData) {
+        const rolesMap = (rolesData as UserRole[]).reduce((acc, r) => {
+          acc[r.user_id] = r.role;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const mergedProfiles = (profilesData as Profile[]).map(p => ({
+          ...p,
+          role: rolesMap[p.id] || 'student',
+          approval_status: p.approval_status || 'pending'
+        }));
+
+        setProfiles(mergedProfiles as Profile[]);
         setUserRoles(rolesData as UserRole[]);
+
         // Calculate role counts
         const counts: Record<string, number> = {};
         (rolesData as UserRole[]).forEach((r) => {
@@ -133,8 +124,8 @@ export function useAdminData() {
       }
       if (coursesData) {
         setCourses(coursesData as Course[]);
-        const pending = (coursesData as Course[]).filter((c) => c.status === 'pending').length;
-        const approved = (coursesData as Course[]).filter((c) => c.status === 'approved').length;
+        const pending = (coursesData as Course[]).filter((c) => c.status?.toLowerCase() === 'pending').length;
+        const approved = (coursesData as Course[]).filter((c) => c.status?.toLowerCase() === 'approved' || c.status?.toLowerCase() === 'published').length;
         setStats((prev) => ({ ...prev, pendingCourses: pending, activeCourses: approved }));
       }
       if (eventsData) {
@@ -173,11 +164,11 @@ export function useAdminData() {
   }, [fetchAllData]);
 
   // Admin actions
-  const updateUserStatus = async (userId: string, status: 'active' | 'suspended') => {
+  const updateUserStatus = async (userId: string, status: 'approved' | 'rejected' | 'suspended' | 'active') => {
     try {
-      await fetchWithAuth(`/data/profiles/${userId}`, {
+      await fetchWithAuth('/admin/update-user-status', {
         method: 'PUT',
-        body: JSON.stringify({ status, updated_at: new Date().toISOString() })
+        body: JSON.stringify({ userId, status: status === 'active' ? 'approved' : status })
       });
 
       // Log action
@@ -185,12 +176,12 @@ export function useAdminData() {
         method: 'POST',
         body: JSON.stringify({
           _module: 'User',
-          _action: `User ${status === 'suspended' ? 'suspended' : 'activated'}`,
-          _details: { user_id: userId },
+          _action: `User status changed to ${status}`,
+          _details: { user_id: userId, status },
         })
       });
 
-      toast({ title: 'Success', description: `User ${status === 'suspended' ? 'suspended' : 'activated'}` });
+      toast({ title: 'Success', description: `User status updated to ${status}` });
       fetchAllData(); // Refresh data
       return true;
     } catch (error) {
@@ -201,21 +192,9 @@ export function useAdminData() {
 
   const updateUserRole = async (userId: string, newRole: 'admin' | 'manager' | 'instructor' | 'student') => {
     try {
-      // Find if user has a role record first. My generic API is simple CRUD.
-      // Assuming we can just create/update.
-      // The original code was: DELETE then INSERT.
-      // For generic API, we can try to find existing role ID (on client side since we have userRoles loaded)
-      // or just add a DELETE endpoint logic here.
-
-      // Find existing role ID
-      const currentRole = userRoles.find(ur => ur.user_id === userId);
-      if (currentRole) {
-        await fetchWithAuth(`/data/user_roles/${currentRole.id}`, { method: 'DELETE' });
-      }
-
-      await fetchWithAuth('/data/user_roles', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: userId, role: newRole })
+      await fetchWithAuth('/admin/update-user-role', {
+        method: 'PUT',
+        body: JSON.stringify({ userId, role: newRole })
       });
 
       // Log action
@@ -237,31 +216,41 @@ export function useAdminData() {
     }
   };
 
+  const sendApprovalEmail = async (userId: string) => {
+    try {
+      await fetchWithAuth('/admin/send-approval-email', {
+        method: 'POST',
+        body: JSON.stringify({ userId })
+      });
+      toast({ title: 'Success', description: 'Approval email sent via N8N' });
+      return true;
+    } catch (error) {
+      const err = error as Error;
+      toast({
+        title: 'Error Notification',
+        description: err.message || 'Failed to send notification email',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   const approveCourse = async (courseId: string) => {
     try {
-      const { user } = await fetchWithAuth('/user/profile');
-
-      await fetchWithAuth(`/data/courses/${courseId}`, {
+      await fetchWithAuth('/admin/approve-course', {
         method: 'PUT',
-        body: JSON.stringify({
-          status: 'approved',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.user?.id || user?.id, // Depends on profile structure
-          updated_at: new Date().toISOString(),
-        })
+        body: JSON.stringify({ courseId, status: 'published' })
       });
 
-      await fetchWithAuth('/rpc/log_admin_action', {
-        method: 'POST',
-        body: JSON.stringify({
-          _module: 'Course',
-          _action: 'Course approved',
-          _details: { course_id: courseId },
-        })
-      });
+      // Optimistically update local state immediately
+      setCourses(prev => prev.map(c =>
+        c.id === courseId ? { ...c, status: 'published', reviewed_at: new Date().toISOString() } : c
+      ));
 
-      toast({ title: 'Success', description: 'Course approved successfully' });
-      fetchAllData();
+      toast({ title: '✅ Course Approved', description: 'Course is now published and visible to students.' });
+
+      // Refresh from server after a short delay to sync real DB state
+      setTimeout(fetchAllData, 1500);
       return true;
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to approve course', variant: 'destructive' });
@@ -271,30 +260,19 @@ export function useAdminData() {
 
   const rejectCourse = async (courseId: string, reason: string) => {
     try {
-      const { user } = await fetchWithAuth('/user/profile');
-
-      await fetchWithAuth(`/data/courses/${courseId}`, {
+      await fetchWithAuth('/admin/approve-course', {
         method: 'PUT',
-        body: JSON.stringify({
-          status: 'rejected',
-          rejection_reason: reason,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.user?.id || user.id,
-          updated_at: new Date().toISOString(),
-        })
+        body: JSON.stringify({ courseId, status: 'rejected', rejectionReason: reason })
       });
 
-      await fetchWithAuth('/rpc/log_admin_action', {
-        method: 'POST',
-        body: JSON.stringify({
-          _module: 'Course',
-          _action: 'Course rejected',
-          _details: { course_id: courseId, reason },
-        })
-      });
+      // Optimistically update local state
+      setCourses(prev => prev.map(c =>
+        c.id === courseId ? { ...c, status: 'rejected', rejection_reason: reason, reviewed_at: new Date().toISOString() } : c
+      ));
 
-      toast({ title: 'Success', description: 'Course rejected' });
-      fetchAllData();
+      toast({ title: 'Course Rejected', description: 'Course has been rejected.' });
+
+      setTimeout(fetchAllData, 1500);
       return true;
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to reject course', variant: 'destructive' });
@@ -349,5 +327,6 @@ export function useAdminData() {
     approveCourse,
     rejectCourse,
     resolveSecurityEvent,
+    sendApprovalEmail,
   };
 }

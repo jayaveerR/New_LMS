@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
-import AmbientBackground from "@/components/ui/AmbientBackground";
 import {
   BookOpen,
   Target,
@@ -18,7 +17,6 @@ import {
 const About = () => {
   return (
     <div className="min-h-screen bg-background">
-      <AmbientBackground />
       <Header />
 
       <main className="pt-24 pb-16">

@@ -6,16 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Users, 
-  Search, 
-  Plus, 
-  Edit, 
-  Lock, 
-  Unlock, 
-  UserCog, 
+import {
+  Users,
+  Search,
+  Plus,
+  Edit,
+  Lock,
+  Unlock,
+  UserCog,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Send,
+  CheckCircle
 } from 'lucide-react';
 import type { Profile } from '@/hooks/useAdminData';
 
@@ -23,25 +25,28 @@ interface UserManagementProps {
   users: Profile[];
   loading: boolean;
   roleCounts: Record<string, number>;
-  onUpdateStatus: (userId: string, status: 'active' | 'suspended') => Promise<boolean>;
+  onUpdateStatus: (userId: string, status: 'approved' | 'rejected' | 'suspended' | 'active') => Promise<boolean>;
   onUpdateRole: (userId: string, role: 'admin' | 'manager' | 'instructor' | 'student') => Promise<boolean>;
+  onSendEmail: (userId: string) => Promise<boolean>;
 }
 
-export function UserManagement({ 
-  users, 
-  loading, 
+export function UserManagement({
+  users,
+  loading,
   roleCounts,
-  onUpdateStatus, 
-  onUpdateRole 
+  onUpdateStatus,
+  onUpdateRole,
+  onSendEmail
 }: UserManagementProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [newRole, setNewRole] = useState<string>('');
 
   const filteredUsers = users.filter((user) => {
-    const matchesSearch = 
+    const matchesSearch =
       user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -63,7 +68,7 @@ export function UserManagement({
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
@@ -122,9 +127,9 @@ export function UserManagement({
             <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search users..." 
-                  className="pl-10 w-48" 
+                <Input
+                  placeholder="Search users..."
+                  className="pl-10 w-48"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -169,8 +174,18 @@ export function UserManagement({
                     <Badge variant={getRoleBadgeVariant(user.role)}>
                       {user.role || 'student'}
                     </Badge>
-                    {user.status === 'suspended' && (
+                    {user.status === 'suspended' || user.approval_status === 'suspended' ? (
                       <Badge variant="destructive">suspended</Badge>
+                    ) : user.approval_status === 'pending' ? (
+                      <Badge variant="secondary" className="animate-pulse bg-yellow-100 text-yellow-800 border-yellow-200">
+                        Pending Approval
+                      </Badge>
+                    ) : user.approval_status === 'rejected' ? (
+                      <Badge variant="destructive">Rejected</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                        Approved
+                      </Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -180,12 +195,24 @@ export function UserManagement({
                   {formatLastActive(user.last_active_at)}
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" title="Edit">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  {user.approval_status === 'pending' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowApprovalDialog(true);
+                      }}
+                    >
+                      Review & Approve
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
                     title="Change Role"
                     onClick={() => {
                       setSelectedUser(user);
@@ -195,23 +222,26 @@ export function UserManagement({
                   >
                     <UserCog className="h-4 w-4" />
                   </Button>
-                  {user.status === 'active' ? (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+
+                  {user.approval_status === 'suspended' || user.status === 'suspended' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Activate"
+                      onClick={() => onUpdateStatus(user.id, 'approved')}
+                    >
+                      <Unlock className="h-4 w-4 text-green-600" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
                       title="Suspend"
                       onClick={() => onUpdateStatus(user.id, 'suspended')}
                     >
                       <Lock className="h-4 w-4 text-destructive" />
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      title="Activate"
-                      onClick={() => onUpdateStatus(user.id, 'active')}
-                    >
-                      <Unlock className="h-4 w-4 text-green-600" />
                     </Button>
                   )}
                 </div>
@@ -220,7 +250,7 @@ export function UserManagement({
           )}
         </CardContent>
       </Card>
-      
+
       {/* Role Management Sidebar */}
       <Card>
         <CardHeader>
@@ -289,6 +319,93 @@ export function UserManagement({
             </Button>
             <Button onClick={handleRoleChange}>
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Confirmation Dialog */}
+      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              User Details & Approval
+            </DialogTitle>
+            <DialogDescription>
+              Review the user profile before confirming access.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-4 my-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Full Name</p>
+                <p className="text-sm font-medium">{selectedUser?.full_name || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Role</p>
+                <Badge variant="outline">{selectedUser?.role || 'student'}</Badge>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Email Address</p>
+              <p className="text-sm font-medium">{selectedUser?.email}</p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Join Date</p>
+              <p className="text-sm">{selectedUser?.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+
+            <div className="pt-2 border-t border-border flex items-center gap-2 text-yellow-700 text-xs font-medium">
+              <AlertCircle className="h-4 w-4" />
+              <span>Confirming will trigger an automated email via N8N.</span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
+            <Button variant="ghost" className="sm:mr-auto" onClick={() => setShowApprovalDialog(false)}>
+              Cancel
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedUser) onUpdateStatus(selectedUser.id, 'rejected');
+                setShowApprovalDialog(false);
+              }}
+            >
+              Reject
+            </Button>
+
+            <Button
+              className="bg-green-600 hover:bg-green-700 gap-2"
+              onClick={async () => {
+                if (selectedUser) {
+                  await onUpdateStatus(selectedUser.id, 'approved');
+                  // Keep dialog open to allow sending email next? 
+                  // Let's keep it open or just show one at a time.
+                }
+              }}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Confirm Approval
+            </Button>
+
+            <Button
+              variant="default"
+              className="bg-blue-600 hover:bg-blue-700 gap-2"
+              onClick={async () => {
+                if (selectedUser) {
+                  await onSendEmail(selectedUser.id);
+                  setShowApprovalDialog(false);
+                }
+              }}
+            >
+              <Send className="h-4 w-4" />
+              Send Email
             </Button>
           </DialogFooter>
         </DialogContent>

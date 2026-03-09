@@ -1,14 +1,14 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useInstructorCourses, Course } from '@/hooks/useInstructorData';
+import { useInstructorPlaylists, Playlist } from '@/hooks/useInstructorData';
 import { BookOpen } from 'lucide-react';
 
 interface CourseSelectorProps {
-  selectedCourse: Course | null;
-  onSelectCourse: (course: Course | null) => void;
+  selectedCourse: any | null;
+  onSelectCourse: (course: any | null) => void;
 }
 
 export function CourseSelector({ selectedCourse, onSelectCourse }: CourseSelectorProps) {
-  const { data: courses = [], isLoading } = useInstructorCourses();
+  const { data: playlists = [], isLoading } = useInstructorPlaylists();
 
   return (
     <div className="flex items-center gap-3">
@@ -16,23 +16,28 @@ export function CourseSelector({ selectedCourse, onSelectCourse }: CourseSelecto
       <Select
         value={selectedCourse?.id || ''}
         onValueChange={(value) => {
-          const course = courses.find((c) => c.id === value) || null;
+          const course = (playlists || []).find((c: any) => c.id === value) || null;
           onSelectCourse(course);
         }}
-        disabled={isLoading || courses.length === 0}
+        disabled={isLoading || !playlists || playlists.length === 0}
       >
         <SelectTrigger className="w-[280px]">
-          <SelectValue placeholder={isLoading ? "Loading courses..." : "Select a course"} />
+          <SelectValue placeholder={isLoading ? "Loading courses..." : (!playlists || playlists.length === 0 ? "No courses available" : "Select a course")} />
         </SelectTrigger>
         <SelectContent>
-          {courses.map((course) => (
-            <SelectItem key={course.id} value={course.id}>
-              <div className="flex items-center gap-2">
-                <span>{course.title}</span>
-                <span className="text-xs text-muted-foreground">({course.status})</span>
-              </div>
-            </SelectItem>
-          ))}
+          {(playlists || []).length > 0 ? (
+            (playlists || []).map((course: any) => (
+              <SelectItem key={course.id} value={course.id}>
+                <div className="flex items-center gap-2">
+                  <span>{course.title}</span>
+                </div>
+              </SelectItem>
+            ))
+          ) : (
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              No courses found. Create a course first.
+            </div>
+          )}
         </SelectContent>
       </Select>
     </div>

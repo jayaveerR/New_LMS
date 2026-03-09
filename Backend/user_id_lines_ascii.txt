@@ -1,0 +1,18 @@
+103:            .eq('user_id', req.user.id)
+123:            .eq('user_id', req.user.id)
+186:                user_id: data.user.id,
+244:                { user_id: userId, role: role, updated_at: new Date().toISOString() },
+245:                { onConflict: 'user_id,role' }
+251:        await supabase.from('user_roles').delete().eq('user_id', userId).neq('role', role);
+308:        const { data: userRole } = await supabase.from('user_roles').select('role').eq('user_id', userId).single();
+316:            user_id: userId,
+380:            .eq('user_id', req.user.id)
+532:                user_id: userId,
+669:        participants:chat_participants!inner(user_id)
+671:            .eq('participants.user_id', userId);
+801:        const { data: roleData } = await authClient.from('user_roles').select('role').eq('user_id', req.user.id).eq('role', 'admin').single();
+833:    const { course_id, user_id } = req.body;
+834:    if (!course_id || !user_id) return res.status(400).json({ error: 'course_id and user_id are required' });
+836:    console.log(`[Enrollment] Instructor ${req.user.id} enrolling student ${user_id} in course ${course_id}`);
+862:                user_id,
+890:        console.log(`[Enrollment Success] Student ${user_id} enrolled in ${course_id}`);

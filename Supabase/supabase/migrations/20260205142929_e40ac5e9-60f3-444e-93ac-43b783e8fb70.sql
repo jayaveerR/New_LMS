@@ -6,7 +6,7 @@
 DROP POLICY IF EXISTS "System can insert security events" ON public.security_events;
 CREATE POLICY "Authenticated users can insert security events"
   ON public.security_events FOR INSERT
-  TO authenticated
+43b783e8fb70  TO authenticated
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
 
 -- Improve system_logs INSERT to require user context
