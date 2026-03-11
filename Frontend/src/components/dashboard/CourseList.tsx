@@ -64,7 +64,7 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {courses.map((course: StudentCourse, index: number) => {
                 const thumbnailUrl = course.thumbnail_url
-                    ? (course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${course.thumbnail_url}`)
+                    ? (course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`)
                     : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop';
 
                 return (

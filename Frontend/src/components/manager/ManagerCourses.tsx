@@ -254,7 +254,7 @@ export function ManagerCourses() {
                                     <div className="relative aspect-video bg-muted overflow-hidden">
                                         {course.thumbnail_url ? (
                                             <img
-                                                src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${course.thumbnail_url}`}
+                                                src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`}
                                                 alt={course.title}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                                 onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop'; }}

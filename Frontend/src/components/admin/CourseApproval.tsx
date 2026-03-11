@@ -179,7 +179,7 @@ export function CourseApproval({
                 <div className="h-14 w-24 rounded-md bg-accent/10 flex items-center justify-center overflow-hidden border border-border">
                   {course.thumbnail_url ? (
                     <img
-                      src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${course.thumbnail_url}`}
+                      src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`}
                       className="w-full h-full object-cover"
                       alt=""
                     />

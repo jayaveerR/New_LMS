@@ -177,7 +177,7 @@ function ModuleItem({ module, course }: { module: CourseModule, course: Course }
                                         className="w-full h-full"
                                         preload="metadata"
                                     >
-                                        <source src={vid.video_url.startsWith('http') ? vid.video_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${vid.video_url}`} type="video/mp4" />
+                                        <source src={vid.video_url.startsWith('http') ? vid.video_url : `/s3/public/${vid.video_url}`} type="video/mp4" />
                                         Your browser does not support the video tag.
                                     </video>
                                 </div>
@@ -414,7 +414,7 @@ export function CourseBuilder({ course, onBack }: CourseBuilderProps) {
                         <CardContent className="space-y-4 text-sm">
                             {course.thumbnail_url && (
                                 <div className="aspect-video w-full rounded-md overflow-hidden bg-muted">
-                                    <img src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${course.thumbnail_url}`} className="w-full h-full object-cover" alt="Thumbnail" />
+                                    <img src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`} className="w-full h-full object-cover" alt="Thumbnail" />
                                 </div>
                             )}
                             <div><span className="font-semibold">Category:</span> {course.category || 'N/A'}</div>
