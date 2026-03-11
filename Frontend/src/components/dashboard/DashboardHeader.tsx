@@ -1,18 +1,27 @@
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, LogOut, User, LayoutDashboard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Bell,
+  Search,
+  Settings,
+  LogOut,
+  User,
+  LayoutDashboard,
+  GraduationCap,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
 export function DashboardHeader() {
   const { user, userRole, signOut } = useAuth();
@@ -27,103 +36,131 @@ export function DashboardHeader() {
         .toUpperCase()
         .slice(0, 2);
     }
-    return user?.email?.slice(0, 2).toUpperCase() || 'ST';
+    return user?.email?.slice(0, 2).toUpperCase() || "ST";
   };
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate("/");
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-      <SidebarTrigger className="-ml-1" />
+    <header className="sticky top-0 z-40 flex h-16 sm:h-20 items-center justify-between gap-2 sm:gap-4 glass-panel px-4 md:px-6 lg:px-10 border-b border-black/5 transition-all duration-300 bg-white/90 backdrop-blur-xl shadow-sm">
+      <div className="flex items-center gap-6">
+        <SidebarTrigger className="-ml-2 h-10 w-10 text-primary hover:bg-primary/5 rounded-xl transition-all" />
 
-      <div className="flex-1 flex items-center gap-4">
-        <div className="relative hidden md:block w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative hidden md:flex items-center group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors duration-300" />
           <Input
-            placeholder="Search courses, exams..."
-            className="pl-10 bg-muted/50"
+            placeholder="Search courses, mentors..."
+            className="pl-12 w-[300px] lg:w-[450px] h-11 bg-slate-50 border-slate-200 focus-visible:ring-primary/20 focus-visible:bg-white focus-visible:border-primary/50 text-sm transition-all rounded-2xl placeholder:text-slate-500 font-medium"
           />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-widest hidden lg:block shadow-sm">
+            CTRL K
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          onClick={() => navigate('/student-dashboard/notifications')}
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-[10px] font-medium text-accent-foreground flex items-center justify-center">
-            3
-          </span>
-        </Button>
+      <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-11 w-11 rounded-2xl bg-white border-slate-200 hover:border-primary/30 hover:bg-primary/5 text-slate-600 hover:text-primary relative group transition-all"
+            onClick={() => navigate("/student-dashboard/notifications")}
+          >
+            <Bell className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+            <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-accent shadow-sm" />
+          </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 p-1.5 rounded-full hover:bg-muted/80 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/20 group">
-              <div className="relative">
-                <Avatar className="h-9 w-9 border-2 border-primary/20 group-hover:border-primary/50 transition-colors">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-3 pl-2 pr-4 h-12 rounded-2xl bg-white border border-slate-200 hover:border-primary/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/10 group shadow-sm">
+                <Avatar className="h-8 w-8 rounded-lg group-hover:scale-105 transition-transform">
                   <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-sm font-semibold">
+                  <AvatarFallback className="bg-primary/10 text-primary font-black text-xs rounded-lg rounded-xl">
                     {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
-                {userRole && (
-                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-background shadow-sm ring-1 ring-black/5" title={userRole} />
-                )}
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 p-2 bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl z-[100] rounded-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-3 py-3 mb-2 rounded-xl bg-muted/30 border border-border/20">
-              <p className="text-sm font-bold text-foreground line-clamp-1">{user?.user_metadata?.full_name || "Student"}</p>
-              <p className="text-xs text-muted-foreground truncate mb-2">{user?.email}</p>
-              {userRole && (
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="secondary" className="px-2 py-0 h-5 text-[10px] uppercase font-black bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20 transition-colors">
-                    {userRole}
+                <div className="hidden md:flex flex-col items-start space-y-0.5">
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors tracking-tight leading-none">
+                    {user?.user_metadata?.full_name || "User"}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider leading-none">
+                    {userRole || "Student"}
+                  </span>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-72 p-2 bg-white border border-slate-200 shadow-2xl rounded-2xl mt-4 animate-in fade-in slide-in-from-top-2 duration-300"
+            >
+              <DropdownMenuLabel className="px-4 py-3">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  Student Account
+                </span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-slate-100" />
+
+              <div className="px-4 py-4 mb-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <GraduationCap className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 leading-none mb-1">
+                      {user?.user_metadata?.full_name || "Enrolled Student"}
+                    </p>
+                    <p className="text-[10px] font-medium text-slate-600 truncate max-w-[150px]">
+                      {user?.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Badge className="justify-center flex-1 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-bold py-1">
+                    Tech Scholar
                   </Badge>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {(userRole === 'instructor' || userRole === 'admin') && (
-              <>
+              {(userRole === "instructor" || userRole === "admin") && (
                 <DropdownMenuItem
                   onClick={() => navigate(`/${userRole}`)}
-                  className="cursor-pointer rounded-lg px-3 py-2.5 mb-1 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary transition-all group flex items-center justify-between"
+                  className="h-11 rounded-xl px-4 text-xs font-bold gap-3 text-primary bg-primary/5 hover:bg-primary/10 focus:bg-primary/10 transition-all mb-1 cursor-pointer"
                 >
-                  <div className="flex items-center font-semibold">
-                    <LayoutDashboard className="h-4 w-4 mr-2 text-primary/70" />
-                    <span>{userRole.charAt(0).toUpperCase() + userRole.slice(1)} Hub</span>
-                  </div>
-                  <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[10px]">→</span>
-                  </div>
+                  <LayoutDashboard className="h-4 w-4" />
+                  Return to Staff Portal
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="mx-2 my-2 opacity-50" />
-              </>
-            )}
+              )}
 
-            <DropdownMenuItem onClick={() => navigate('/student-dashboard/profile')} className="cursor-pointer rounded-lg px-3 py-2 text-sm text-foreground/80 hover:text-foreground">
-              <User className="h-4 w-4 mr-2 text-muted-foreground" />
-              My Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/student-dashboard/settings')} className="cursor-pointer rounded-lg px-3 py-2 text-sm text-foreground/80 hover:text-foreground">
-              <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
-              Account Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="mx-2 my-2 opacity-50" />
-            <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive transition-colors">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem
+                onClick={() => navigate("/student-dashboard/profile")}
+                className="h-11 rounded-xl px-4 text-xs font-bold gap-3 hover:bg-slate-50 transition-all cursor-pointer text-slate-700 hover:text-primary"
+              >
+                <User className="h-4 w-4" />
+                My Profile
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => navigate("/student-dashboard/settings")}
+                className="h-11 rounded-xl px-4 text-xs font-bold gap-3 hover:bg-slate-50 transition-all cursor-pointer text-slate-700 hover:text-primary"
+              >
+                <Settings className="h-4 w-4" />
+                Account Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="bg-slate-100" />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="h-11 rounded-xl px-4 text-xs font-bold gap-3 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

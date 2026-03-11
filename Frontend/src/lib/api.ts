@@ -1,13 +1,13 @@
-export const API_URL = 'https://new-lms-m5l5.onrender.com/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'https://new-lms-m5l5.onrender.com/api';
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     let token = localStorage.getItem('access_token');
 
     // Set up headers
-    const getHeaders = (t: string | null) => {
-        const h: any = {
+    const getHeaders = (t: string | null): Record<string, string> => {
+        const h: Record<string, string> = {
             'Content-Type': 'application/json',
-            ...options.headers,
+            ...(options.headers as Record<string, string>),
         };
         if (t) {
             h['Authorization'] = `Bearer ${t}`;
@@ -61,7 +61,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         try {
             const err = await res.json();
             errStr = err.error || errStr;
-        } catch { }
+        } catch {
+            // Ignore if response is not JSON
+        }
         throw new Error(errStr);
     }
 

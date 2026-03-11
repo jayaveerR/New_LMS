@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -11,88 +11,108 @@ import {
   SidebarHeader,
   SidebarFooter,
   useSidebar,
-} from '@/components/ui/sidebar';
-import { NavLink } from '@/components/NavLink';
+} from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
   BookOpen,
-  Video,
   Users,
+  Video,
+  FileQuestion,
   Calendar,
+  MessageSquare,
   FileText,
   BarChart3,
-  Bell,
-  Settings,
   HelpCircle,
   LogOut,
-  GraduationCap,
-  Upload,
-  ClipboardList,
-  MessageCircle,
-} from 'lucide-react';
-import logo from '@/assets/logo.png';
-import { useAuth } from '@/hooks/useAuth';
+  FolderOpen,
+  Zap,
+  Radio,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
+import logo from "@/assets/logo.png";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const mainNavItems = [
-  { title: 'Dashboard', url: '/instructor', icon: LayoutDashboard },
-  { title: 'My Courses', url: '/instructor/courses', icon: BookOpen },
-  { title: 'Live Classes', url: '/instructor/live-classes', icon: Video },
-  { title: 'Students', url: '/instructor/students', icon: Users },
-  { title: 'Doubts & Q&A', url: '/instructor/doubts', icon: MessageCircle },
+  { title: "Dashboard", url: "/instructor", icon: LayoutDashboard },
+  { title: "My Courses", url: "/instructor/courses", icon: BookOpen },
+  { title: "Student Roster", url: "/instructor/students", icon: Users },
+  { title: "Live Broadcast", url: "/instructor/live-classes", icon: Radio },
 ];
 
 const contentNavItems = [
-  { title: 'Videos', url: '/instructor/videos', icon: Video },
-  { title: 'Resources', url: '/instructor/resources', icon: FileText },
-  { title: 'Assignments', url: '/instructor/assignments', icon: ClipboardList },
-  { title: 'Exams', url: '/instructor/exams', icon: GraduationCap },
+  { title: "Video Library", url: "/instructor/videos", icon: Video },
+  { title: "Assessments", url: "/instructor/exams", icon: FileQuestion },
+  { title: "Assignments", url: "/instructor/assignments", icon: FileText },
+  { title: "Course Resources", url: "/instructor/resources", icon: FolderOpen },
 ];
 
-const analyticsNavItems = [
-  { title: 'Performance', url: '/instructor/performance', icon: BarChart3 },
-  { title: 'Announcements', url: '/instructor/announcements', icon: Bell },
-  { title: 'Schedule', url: '/instructor/schedule', icon: Calendar },
+const analyticNavItems = [
+  { title: "Performance", url: "/instructor/performance", icon: BarChart3 },
+  { title: "Inquiries", url: "/instructor/doubts", icon: MessageSquare },
+  { title: "Class Schedule", url: "/instructor/schedule", icon: Calendar },
 ];
 
 export function InstructorSidebar() {
   const { state } = useSidebar();
-  const collapsed = state === 'collapsed';
+  const collapsed = state === "collapsed";
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
 
-  // ── HIDDEN from public: only render sidebar for authenticated instructor users
-  if (!user) return null;
-
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/instructor") {
+      return (
+        location.pathname === "/instructor" ||
+        location.pathname === "/instructor/"
+      );
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarHeader className="p-4">
-        <a href="/" className="flex items-center gap-3">
-          <img src={logo} alt="AOTMS Logo" className="h-8" />
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-slate-200/60 !bg-white/70 backdrop-blur-xl font-sans"
+    >
+      <SidebarHeader className="h-20 flex items-center justify-center px-4 group-data-[collapsible=icon]:px-0 border-b border-slate-200/60">
+        <Link
+          to="/"
+          className="flex flex-col gap-1 items-center active:scale-95 transition-transform"
+        >
+          <img
+            src={logo}
+            alt="AOTMS Logo"
+            className="h-10 w-auto object-contain group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8"
+          />
           {!collapsed && (
-            <span className="font-heading text-lg text-foreground">AOTMS</span>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+              Instructor Panel
+            </span>
           )}
-        </a>
+        </Link>
       </SidebarHeader>
 
-      <SidebarContent>
-        {/* ── Main Navigation — always visible to instructor */}
+      <SidebarContent className="px-3 group-data-[collapsible=icon]:px-2 py-6 space-y-8 custom-scrollbar">
+        {/* Hub */}
         <SidebarGroup>
-          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>Operations Hub</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {mainNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary"
-                    >
-                      <item.icon className="h-4 w-4" />
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-primary/5 data-[active=true]:text-primary"
+                  >
+                    <Link to={item.url} className="flex items-center gap-3">
+                      <item.icon
+                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
+                      />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -100,22 +120,24 @@ export function InstructorSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Content Management — hidden on public, visible only when logged in */}
+        {/* Content */}
         <SidebarGroup>
-          <SidebarGroupLabel>Content</SidebarGroupLabel>
+          <SidebarGroupLabel>Curriculum</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {contentNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary"
-                    >
-                      <item.icon className="h-4 w-4" />
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-accent/5 data-[active=true]:text-accent"
+                  >
+                    <Link to={item.url} className="flex items-center gap-3">
+                      <item.icon
+                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-accent" : "text-slate-500 group-hover:text-slate-700"}`}
+                      />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -123,22 +145,24 @@ export function InstructorSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Analytics — hidden on public */}
+        {/* Analytics */}
         <SidebarGroup>
-          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+          <SidebarGroupLabel>Insights</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {analyticsNavItems.map((item) => (
+            <SidebarMenu className="gap-1">
+              {analyticNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary"
-                    >
-                      <item.icon className="h-4 w-4" />
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-primary/5 data-[active=true]:text-primary"
+                  >
+                    <Link to={item.url} className="flex items-center gap-3">
+                      <item.icon
+                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
+                      />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -147,31 +171,25 @@ export function InstructorSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 space-y-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink to="/instructor/settings" className="flex items-center gap-3">
-                <Settings className="h-4 w-4" />
-                {!collapsed && <span>Settings</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink to="/instructor/help" className="flex items-center gap-3">
-                <HelpCircle className="h-4 w-4" />
-                {!collapsed && <span>Help</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut} className="text-destructive hover:text-destructive">
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span>Sign Out</span>}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="p-4 group-data-[collapsible=icon]:p-2 border-t border-slate-50 bg-slate-50/50">
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start group-data-[collapsible=icon]:justify-center gap-3 h-11 px-4 group-data-[collapsible=icon]:px-0 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold"
+            onClick={() => navigate("/instructor/settings")}
+          >
+            <Settings className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="text-sm">Account Settings</span>}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start group-data-[collapsible=icon]:justify-center gap-3 h-11 px-4 group-data-[collapsible=icon]:px-0 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold"
+            onClick={signOut}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="text-sm">Sign Out</span>}
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

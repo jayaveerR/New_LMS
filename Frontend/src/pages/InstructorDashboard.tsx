@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { InstructorSidebar } from "@/components/instructor/InstructorSidebar";
 import { InstructorHeader } from "@/components/instructor/InstructorHeader";
 import { useAuth } from "@/hooks/useAuth";
-import { useInstructorCourses, useInstructorPlaylists, useInstructorStats, Course } from "@/hooks/useInstructorData";
+import {
+  useInstructorCourses,
+  useInstructorStats,
+} from "@/hooks/useInstructorData";
 import { InstructorStats } from "@/components/instructor/dashboard/InstructorStats";
 import { PerformanceCharts } from "@/components/instructor/dashboard/PerformanceCharts";
 import { SmartAlerts } from "@/components/instructor/dashboard/SmartAlerts";
@@ -17,64 +20,96 @@ import PerformanceDashboard from "@/components/instructor/dashboard/PerformanceD
 import { LiveClassManager } from "@/components/instructor/dashboard/LiveClassManager";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Bell, Sparkles, RefreshCw } from "lucide-react";
+import {
+  Bell,
+  Sparkles,
+  RefreshCw,
+  Plus,
+  LayoutDashboard,
+  BarChart3,
+  Clock,
+  BookOpen,
+  Users,
+  Calendar,
+  ChevronRight,
+  TrendingUp,
+  BrainCircuit,
+  Activity,
+  User,
+  Video,
+} from "lucide-react";
 
-// ─── Welcome Banner ───────────────────────────────────────────────────────────
+// ─── Welcome Component ────────────────────────────────────────────────────────
 function WelcomeBanner({ name }: { name: string }) {
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
-    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="pro-card p-5 sm:p-8 md:p-10 bg-slate-900 text-white relative overflow-hidden group border-none shadow-lg"
     >
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm text-muted-foreground">{greeting},</span>
-          <Badge variant="outline" className="text-xs bg-primary/5 border-primary/20 text-primary">
-            <Sparkles className="h-3 w-3 mr-1" />Instructor
-          </Badge>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{name || "Instructor"}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Here's your teaching overview for today.</p>
+      <div className="absolute top-0 right-0 p-8 md:p-12 opacity-10 group-hover:scale-110 transition-transform duration-1000">
+        <BrainCircuit className="h-32 w-32 md:h-48 md:w-48" />
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button variant="outline" size="sm" className="gap-2 h-9"><Bell className="h-3.5 w-3.5" />Notifications</Button>
+
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-10">
+        <div className="space-y-4">
+          <Badge className="bg-primary/20 text-blue-400 border-primary/20 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-widest shadow-sm">
+            Instructor Hub
+          </Badge>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+            {greeting},{" "}
+            <span className="text-primary font-black italic">
+              {name.split(" ")[0]}
+            </span>
+            .
+          </h1>
+          <p className="text-slate-400 max-w-xl font-medium text-base md:text-lg leading-relaxed">
+            Welcome back to your teaching portal. You have{" "}
+            <span className="text-white font-bold">12 students</span> waiting
+            for today's live session in{" "}
+            <span className="text-white font-bold">45 minutes</span>.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+          <Button className="pro-button-primary h-12 md:h-14 px-6 md:px-8 w-full sm:w-auto rounded-xl shadow-lg shadow-primary/20 group text-sm md:text-base">
+            <Plus className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+            Create New Course
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 md:h-14 px-6 md:px-8 w-full sm:w-auto rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white font-semibold text-sm md:text-base"
+          >
+            View Schedule
+          </Button>
+        </div>
       </div>
     </motion.div>
   );
 }
 
-// ─── Page transition ──────────────────────────────────────────────────────────
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
-};
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Dashboard Component ─────────────────────────────────────────────────
 export default function InstructorDashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: courses = [], isLoading: coursesLoading, error, refetch } = useInstructorCourses();
+  const {
+    data: courses = [],
+    isLoading: coursesLoading,
+    refetch,
+  } = useInstructorCourses();
   const { data: stats, isLoading: statsLoading } = useInstructorStats();
-  const [selectedCourseId, setSelectedCourseId] = useState<string>("");
 
-  const { userRole } = useAuth();
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
         navigate("/auth");
-      } else if (userRole !== 'instructor' && userRole !== 'admin') {
-        // If not instructor/admin, kick to student dashboard
+      } else if (userRole !== "instructor" && userRole !== "admin") {
         navigate("/student-dashboard");
       }
     }
@@ -88,11 +123,8 @@ export default function InstructorDashboard() {
 
   if (authLoading || coursesLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground animate-pulse">Loading your dashboard...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <RefreshCw className="h-8 w-8 text-primary animate-spin" />
       </div>
     );
   }
@@ -103,166 +135,177 @@ export default function InstructorDashboard() {
   const isStudents = path === "/instructor/students";
   const isDoubts = path === "/instructor/doubts";
   const isResources = path === "/instructor/resources";
-  const isAssignments = path === "/instructor/assignments" || path === "/instructor/assignments/";
+  const isAssignments = path.startsWith("/instructor/assignments");
   const isPerformance = path === "/instructor/performance";
   const isVideos = path === "/instructor/videos";
-  const isExams = path === "/instructor/exams";
-  const isAnnouncements = path === "/instructor/announcements";
   const isLiveClasses = path === "/instructor/live-classes";
-  const isSchedule = path === "/instructor/schedule";
-
-  console.log('Instructor Dashboard Router:', { path, isRoot, isAssignments, isPerformance });
 
   return (
-    <SidebarProvider className="h-screen overflow-hidden">
+    <SidebarProvider className="h-screen w-full overflow-hidden mesh-bg font-sans">
       <InstructorSidebar />
-      <SidebarInset className="flex flex-col h-screen overflow-hidden bg-background">
+      <SidebarInset className="flex flex-col h-screen w-full overflow-hidden bg-transparent">
         <InstructorHeader />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
-          <AnimatePresence mode="wait">
-            {/* ── Dashboard ─────────────────────────────────────────── */}
-            {isRoot && (
-              <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-8">
-                <WelcomeBanner name={user?.user_metadata?.full_name || "Instructor"} />
-                <InstructorStats coursesCount={courses.length} stats={stats} loading={statsLoading || coursesLoading} />
-                <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-                  <PerformanceCharts loading={statsLoading} />
-                  <SmartAlerts />
-                </div>
-              </motion.div>
-            )}
+        <main className="flex-1 w-full overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 custom-scrollbar">
+          <div className="max-w-7xl mx-auto space-y-10">
+            <AnimatePresence mode="wait">
+              {/* ── Dashboard Stats Overlay ────────────────────────────────── */}
+              {isRoot && (
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-10"
+                >
+                  <WelcomeBanner
+                    name={user?.user_metadata?.full_name || "Instructor"}
+                  />
 
-            {/* ── Assignments ────────────────────────────────────────── */}
-            {isAssignments && (
-              <motion.div key="assignments" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <AssignmentsDashboard />
-              </motion.div>
-            )}
+                  <InstructorStats
+                    coursesCount={courses.length}
+                    stats={stats}
+                    loading={statsLoading || coursesLoading}
+                  />
 
-            {/* ── My Courses ────────────────────────────────────────── */}
-            {isCourses && (
-              <motion.div key="courses" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <InstructorCourses />
-              </motion.div>
-            )}
+                  <div className="grid gap-6 lg:gap-10 xl:grid-cols-3">
+                    <div className="xl:col-span-2 space-y-6 lg:space-y-10 min-w-0">
+                      <div className="pro-card p-4 sm:p-6 md:p-8 bg-white min-w-0 overflow-hidden">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                          <div>
+                            <h3 className="text-lg md:text-xl font-bold text-slate-900">
+                              Engagement Overview
+                            </h3>
+                            <p className="text-sm text-slate-500 font-medium">
+                              Trends in student participation and progress.
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            className="text-primary font-bold text-sm gap-2 w-full sm:w-auto mt-2 sm:mt-0"
+                          >
+                            Details <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="h-[250px] sm:h-[300px] md:h-[350px] w-full mt-2">
+                          <PerformanceCharts loading={statsLoading} />
+                        </div>
+                      </div>
 
-            {/* ── Students ─────────────────────────────────────────── */}
-            {isStudents && (
-              <motion.div key="students" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <InstructorStudentDashboard />
-              </motion.div>
-            )}
+                      <div className="pro-card p-1 bg-white min-w-0 overflow-hidden mt-6 lg:mt-10">
+                        <div className="p-4 sm:p-6 md:p-8 border-b border-slate-100">
+                          <h3 className="text-lg md:text-xl font-bold text-slate-900">
+                            Recent Courses
+                          </h3>
+                        </div>
+                        <InstructorCourses limit={3} hideHeader />
+                      </div>
+                    </div>
 
-            {/* ── Doubts & Q&A ─────────────────────────────────────── */}
-            {isDoubts && (
-              <motion.div key="doubts" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <DoubtManager />
-              </motion.div>
-            )}
+                    <div className="space-y-6 lg:space-y-8 min-w-0">
+                      <SmartAlerts />
 
-            {/* ── Resources ────────────────────────────────────────── */}
-            {isResources && (
-              <motion.div key="resources" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <ResourcesDashboard />
-              </motion.div>
-            )}
-
-            {/* ── Performance ────────────────────────────────────────── */}
-            {isPerformance && (
-              <motion.div key="performance" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <PerformanceDashboard />
-              </motion.div>
-            )}
-
-            {/* ── Videos ────────────────────────────────────────── */}
-            {isVideos && (
-              <motion.div key="videos" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <div className="flex flex-col items-center justify-center py-32 text-center bg-card/30 rounded-3xl border border-dashed backdrop-blur-sm">
-                  <div className="text-7xl mb-6 drop-shadow-lg">🎬</div>
-                  <h2 className="text-2xl font-bold text-foreground mb-3">Content Library</h2>
-                  <p className="text-muted-foreground text-base max-w-md mx-auto mb-8">
-                    Your centralized video repository is under construction. Currently, you can manage videos within specific courses.
-                  </p>
-                  <Button
-                    onClick={() => navigate("/instructor/courses")}
-                    className="h-12 px-8 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20"
-                  >
-                    Manage via Courses
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ── Announcements ────────────────────────────────────────── */}
-            {isAnnouncements && (
-              <motion.div key="announcements" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <div className="flex flex-col items-center justify-center py-32 text-center bg-card/30 rounded-3xl border border-dashed backdrop-blur-sm">
-                  <div className="text-7xl mb-6 drop-shadow-lg">📢</div>
-                  <h2 className="text-2xl font-bold text-foreground mb-3">Broadcast Center</h2>
-                  <p className="text-muted-foreground text-base max-w-md mx-auto mb-8">
-                    Post updates and notifications for your students. Global announcements feature is being polished.
-                  </p>
-                  <Button
-                    onClick={() => navigate("/instructor/courses")}
-                    className="h-12 px-8"
-                  >
-                    Go to Course Announcements
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ── Exams ────────────────────────────────────────── */}
-            {isExams && (
-              <motion.div key="exams" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <div className="flex flex-col items-center justify-center py-32 text-center bg-card/30 rounded-3xl border border-dashed backdrop-blur-sm">
-                  <div className="text-7xl mb-6 drop-shadow-lg">📝</div>
-                  <h2 className="text-2xl font-bold text-foreground mb-3">Examination Portal</h2>
-                  <p className="text-muted-foreground text-base max-w-md mx-auto mb-8">
-                    Create quizzes, mid-terms, and final exams. This advanced module will be enabled in the next update.
-                  </p>
-                  <div className="flex gap-4">
-                    <Button variant="outline" onClick={() => navigate("/instructor")} className="h-11 px-6">Return Home</Button>
-                    <Button className="h-11 px-6 animate-pulse">Request Early Access</Button>
+                      <div className="pro-card p-4 sm:p-6 md:p-8 bg-gradient-to-br from-slate-50 to-white hover:bg-white cursor-pointer transition-all border-slate-200 min-w-0">
+                        <h4 className="text-xs md:text-sm font-bold text-primary uppercase tracking-widest mb-4 md:mb-6">
+                          Active Sessions
+                        </h4>
+                        <div className="space-y-6">
+                          {[1, 2].map((i) => (
+                            <div
+                              key={i}
+                              className="flex items-start gap-4 p-4 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
+                            >
+                              <div className="h-10 w-10 shrink-0 bg-blue-50 rounded-lg flex items-center justify-center">
+                                <Video className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-sm font-bold text-slate-800">
+                                  Advanced React Patterns
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 font-bold">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" /> 2:30 PM
+                                  </span>
+                                  <span className="flex items-center gap-1 text-emerald-600">
+                                    <Users className="h-3 w-3" /> 42 Online
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              )}
 
-            {/* ── Live Classes ────────────────────────────────────────── */}
-            {isLiveClasses && (
-              <motion.div key="live" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <LiveClassManager />
-              </motion.div>
-            )}
-
-            {/* ── Schedule ────────────────────────────────────────── */}
-            {isSchedule && (
-              <motion.div key="schedule" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-                <div className="flex flex-col items-center justify-center py-32 text-center bg-card/30 rounded-3xl border border-dashed backdrop-blur-sm">
-                  <div className="text-7xl mb-6 drop-shadow-lg">📅</div>
-                  <h2 className="text-2xl font-bold text-foreground mb-3">Academic Calendar</h2>
-                  <p className="text-muted-foreground text-base max-w-md mx-auto mb-8">
-                    Plan your lectures, assignment deadlines, and exam dates. Your personalized schedule is being synced.
-                  </p>
-                  <Button variant="outline" onClick={() => navigate("/instructor")} className="h-11 px-8">Back to Overview</Button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ── Catch-all for other /instructor/* pages ───────────── */}
-            {!isRoot && !isCourses && !isStudents && !isDoubts && !isResources && !isAssignments && !isPerformance && !isVideos && !isAnnouncements && !isExams && !isLiveClasses && !isSchedule && (
-              <motion.div key="other" variants={pageVariants} initial="initial" animate="animate" exit="exit"
-                className="flex flex-col items-center justify-center py-32 text-center"
-              >
-                <div className="text-6xl mb-4">🚧</div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">Coming Soon</h2>
-                <p className="text-muted-foreground text-sm mb-6">This section is under construction.</p>
-                <Button onClick={() => navigate("/instructor")} variant="outline">← Back to Dashboard</Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {/* ── Routing Content ────────────────────────────────────────── */}
+              {isAssignments && (
+                <motion.div
+                  key="assignments"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <AssignmentsDashboard />
+                </motion.div>
+              )}
+              {isCourses && (
+                <motion.div
+                  key="courses"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <InstructorCourses />
+                </motion.div>
+              )}
+              {isStudents && (
+                <motion.div
+                  key="students"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <InstructorStudentDashboard />
+                </motion.div>
+              )}
+              {isDoubts && (
+                <motion.div
+                  key="doubts"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <DoubtManager />
+                </motion.div>
+              )}
+              {isResources && (
+                <motion.div
+                  key="resources"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <ResourcesDashboard />
+                </motion.div>
+              )}
+              {isPerformance && (
+                <motion.div
+                  key="performance"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <PerformanceDashboard />
+                </motion.div>
+              )}
+              {isLiveClasses && (
+                <motion.div
+                  key="live"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <LiveClassManager />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

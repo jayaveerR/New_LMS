@@ -94,7 +94,7 @@ export default function ManagerDashboard() {
       {/* Search and Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
             Manager Dashboard
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -250,14 +250,16 @@ export default function ManagerDashboard() {
                   onClick={() => setActiveSection(item.id)}
                   className={cn(
                     "group flex flex-col p-4 rounded-xl border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all text-left",
-                    item.id === "student-access" && "border-teal-200 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-50"
+                    item.id === "student-access" &&
+                      "border-teal-200 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-50",
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div
                       className={cn(
                         "h-9 w-9 rounded-lg flex items-center justify-center bg-muted transition-colors group-hover:bg-primary/10",
-                        item.id === "student-access" && "bg-teal-100 group-hover:bg-teal-200"
+                        item.id === "student-access" &&
+                          "bg-teal-100 group-hover:bg-teal-200",
                       )}
                     >
                       <item.icon className={cn("h-4 w-4", item.color)} />
@@ -375,15 +377,15 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <SidebarProvider className="h-screen overflow-hidden">
+    <SidebarProvider className="h-[100dvh] w-full overflow-hidden mesh-bg font-sans">
       <ManagerSidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
       />
-      <SidebarInset className="flex flex-col h-screen overflow-hidden">
+      <SidebarInset className="flex flex-col h-[100dvh] w-full overflow-hidden bg-transparent">
         <ManagerHeader />
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-10">
-          <div className="max-w-6xl mx-auto h-full">{renderContent()}</div>
+        <main className="flex-1 w-full overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 custom-scrollbar">
+          <div className="max-w-6xl mx-auto h-full space-y-6">{renderContent()}</div>
         </main>
       </SidebarInset>
     </SidebarProvider>

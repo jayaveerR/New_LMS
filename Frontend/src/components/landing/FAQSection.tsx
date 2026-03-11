@@ -1,243 +1,192 @@
-import { useRef, useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { GraduationCap, BookOpen, Briefcase, Award, Wrench, MapPin, HeadphonesIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { HelpCircle, ChevronDown, GraduationCap, BookOpen, Briefcase, Award } from "lucide-react";
 
-const faqCategories = [
+/**
+ * FAQSection — Blueprint / Technical Grid Low-Poly
+ * Cyan grid subdivided into triangles, like an engineering drawing with circuit nodes
+ */
+const FAQBg = () => {
+  const cols = [0, 150, 300, 450, 600, 750, 900, 1050, 1200];
+  const rows = [0, 125, 250, 375, 500, 625, 750, 875, 1000];
+  return (
+    <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 1200 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="faq-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ecfeff" />
+          <stop offset="50%" stopColor="#f0f9ff" />
+          <stop offset="100%" stopColor="#fff7ed" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="1000" fill="url(#faq-bg)" />
+
+      {/* Grid lines — blueprint feel */}
+      {cols.map((x) => (
+        <line key={`v-${x}`} x1={x} y1="0" x2={x} y2="1000" stroke="#0891b2" strokeWidth="0.4" opacity="0.10" />
+      ))}
+      {rows.map((y) => (
+        <line key={`h-${y}`} x1="0" y1={y} x2="1200" y2={y} stroke="#0891b2" strokeWidth="0.4" opacity="0.10" />
+      ))}
+
+      {/* Diagonal triangles subdividing the grid — alternating cyan tones */}
+      {[0, 2, 4, 6].map((ci) =>
+        [0, 2, 4, 6].map((ri) => {
+          const x1 = cols[ci], y1 = rows[ri];
+          const x2 = cols[ci + 1] ?? x1, y2 = rows[ri + 1] ?? y1;
+          return (
+            <polygon key={`tri-${ci}-${ri}`}
+              points={`${x1},${y1} ${x2},${y1} ${x1},${y2}`}
+              fill="#06b6d4" opacity="0.06" />
+          );
+        })
+      )}
+      {[1, 3, 5, 7].map((ci) =>
+        [1, 3, 5, 7].map((ri) => {
+          const x1 = cols[ci] ?? 0, y1 = rows[ri] ?? 0;
+          const x2 = cols[ci + 1] ?? x1, y2 = rows[ri + 1] ?? y1;
+          return (
+            <polygon key={`tri2-${ci}-${ri}`}
+              points={`${x1},${y1} ${x2},${y2} ${x1},${y2}`}
+              fill="#22d3ee" opacity="0.05" />
+          );
+        })
+      )}
+
+      {/* Top accent — dense cyan spikes */}
+      <polygon points="0,0 150,0 75,80" fill="#0891b2" opacity="0.13" />
+      <polygon points="150,0 300,0 225,80" fill="#0e7490" opacity="0.11" />
+      <polygon points="300,0 450,0 375,80" fill="#06b6d4" opacity="0.12" />
+      <polygon points="450,0 600,0 525,80" fill="#0891b2" opacity="0.11" />
+      <polygon points="600,0 750,0 675,80" fill="#0e7490" opacity="0.12" />
+      <polygon points="750,0 900,0 825,80" fill="#06b6d4" opacity="0.11" />
+      <polygon points="900,0 1050,0 975,80" fill="#0891b2" opacity="0.12" />
+      <polygon points="1050,0 1200,0 1125,80" fill="#0e7490" opacity="0.13" />
+      <polygon points="75,80 150,0 225,80" fill="#a5f3fc" opacity="0.10" />
+      <polygon points="225,80 300,0 375,80" fill="#cffafe" opacity="0.11" />
+      <polygon points="375,80 450,0 525,80" fill="#a5f3fc" opacity="0.10" />
+      <polygon points="525,80 600,0 675,80" fill="#cffafe" opacity="0.11" />
+      <polygon points="675,80 750,0 825,80" fill="#a5f3fc" opacity="0.10" />
+      <polygon points="825,80 900,0 975,80" fill="#cffafe" opacity="0.11" />
+      <polygon points="975,80 1050,0 1125,80" fill="#a5f3fc" opacity="0.10" />
+
+      {/* Bottom band — warm orange contrast */}
+      <polygon points="0,850 150,900 75,1000" fill="#fed7aa" opacity="0.11" />
+      <polygon points="150,900 300,850 225,1000" fill="#fdba74" opacity="0.10" />
+      <polygon points="300,850 450,900 375,1000" fill="#fed7aa" opacity="0.11" />
+      <polygon points="450,900 600,850 525,1000" fill="#fdba74" opacity="0.10" />
+      <polygon points="600,850 750,900 675,1000" fill="#fed7aa" opacity="0.11" />
+      <polygon points="750,900 900,850 825,1000" fill="#fdba74" opacity="0.10" />
+      <polygon points="900,850 1050,900 975,1000" fill="#fed7aa" opacity="0.11" />
+      <polygon points="1050,900 1200,850 1125,1000" fill="#fb923c" opacity="0.12" />
+
+      {/* Grid intersection circuit nodes */}
+      {cols.map((x) =>
+        rows.slice(0, 4).map((y) => (
+          <rect key={`pad-${x}-${y}`} x={x - 3} y={y - 3} width="6" height="6" rx="1.5"
+            fill="#0891b2" opacity="0.20" />
+        ))
+      )}
+      {/* Top spike nodes */}
+      {[75, 225, 375, 525, 675, 825, 975, 1125].map((x) => (
+        <circle key={`spike-${x}`} cx={x} cy={80} r="3" fill="#06b6d4" opacity="0.28" />
+      ))}
+      {/* Bottom orange nodes */}
+      {[75, 225, 375, 525, 675, 825, 975, 1125].map((x) => (
+        <circle key={`bot-${x}`} cx={x} cy={920} r="3" fill="#f97316" opacity="0.26" />
+      ))}
+    </svg>
+  );
+};
+
+const faqGroups = [
   {
-    title: "Admissions & Enrollment",
-    icon: GraduationCap,
+    category: "Admissions", icon: GraduationCap, color: "bg-blue-600",
     questions: [
-      { q: "What is the eligibility criteria for joining AOTMS courses?", a: "We welcome students from all educational backgrounds. Basic computer knowledge is helpful but not mandatory. Our courses are designed to take you from beginner to job-ready." },
-      { q: "Do I need a technical background to join?", a: "No, technical background is not required. Our curriculum is designed for complete beginners and we start from the fundamentals." },
-      { q: "How do I register for a course?", a: "You can register online through our website or visit our Vijayawada campus. Our counselors will guide you through the enrollment process." },
-      { q: "Can I join if I have a career gap?", a: "Absolutely! Many of our successful students had career gaps. We focus on skills and dedication, not gaps in your resume." },
-      { q: "Do I need to bring my own laptop?", a: "We provide fully equipped computer labs. However, having your own laptop helps with practice at home." },
-      { q: "What is the batch size?", a: "We maintain small batch sizes of 15-20 students to ensure personalized attention and better learning outcomes." },
-      { q: "Can I switch batches if needed?", a: "Yes, batch switching is allowed based on availability. Contact our admin team to arrange a transfer." },
+      { q: "What is the eligibility to join AOTMS?", a: "We welcome students from all backgrounds. Basic computer knowledge is helpful but not mandatory — we start from zero." },
+      { q: "Do I need a technical background?", a: "No! Our curriculum is designed for complete beginners. We start from fundamentals and build up progressively." },
+      { q: "How do I register for a course?", a: "Register online via our website or visit our Vijayawada campus. Counselors will guide you." },
+      { q: "Can I join with a career gap?", a: "Absolutely! We focus on skills and dedication, not your history." },
     ],
   },
   {
-    title: "Training & Curriculum",
-    icon: BookOpen,
+    category: "Training", icon: BookOpen, color: "bg-orange-500",
     questions: [
-      { q: "Are the classes online or offline?", a: "We offer both online and offline modes. You can choose based on your convenience and location." },
-      { q: "Do you provide hands-on project experience?", a: "Yes! Every course includes 3-5 real-world projects. You'll build a strong portfolio by the end of your training." },
-      { q: "What if I miss a class?", a: "Recorded sessions are available for all classes. You can also attend the same topic in another batch." },
-      { q: "Do you have weekend batches for working professionals?", a: "Yes, we have dedicated weekend batches designed specifically for working professionals." },
-      { q: "Who are the trainers?", a: "Our trainers are industry professionals with 5-15 years of experience in leading tech companies." },
-      { q: "Do you provide internship certificates?", a: "Yes, upon successful completion of projects and assessments, you'll receive an internship certificate." },
-      { q: "How long are the courses?", a: "Course duration varies from 2-6 months depending on the program. Intensive bootcamps are also available." },
-      { q: "Do you provide study materials?", a: "Yes, comprehensive study materials, practice exercises, and reference guides are provided free of cost." },
-      { q: "What is the class timing?", a: "We have flexible timings - morning (9 AM-12 PM), afternoon (2 PM-5 PM), and evening (6 PM-9 PM) batches." },
+      { q: "Are classes online or offline?", a: "We offer both. Online for flexibility or offline at our campus — same quality either way." },
+      { q: "Do you provide hands-on projects?", a: "Yes! Every course includes 3–5 real-world portfolio projects you can show to employers." },
+      { q: "What if I miss a class?", a: "Recorded sessions are always available. You can also attend the same topic in a different batch." },
+      { q: "Do you have weekend batches?", a: "Yes, dedicated weekend batches are available for working professionals." },
     ],
   },
   {
-    title: "Placements & Career Support",
-    icon: Briefcase,
+    category: "Placements", icon: Briefcase, color: "bg-blue-600",
     questions: [
-      { q: "Do you offer placement assistance?", a: "Yes, we provide 100% placement assistance including job referrals, interview scheduling, and career counseling." },
-      { q: "Which companies hire from AOTMS?", a: "Our students are placed in companies like TCS, Infosys, Wipro, Accenture, Amazon, and many startups." },
-      { q: "What is the average salary package?", a: "Average package ranges from 3-8 LPA for freshers, depending on the course and individual performance." },
-      { q: "How many students have been placed?", a: "We have successfully placed over 2000+ students with a placement rate of 85%+ across all batches." },
-      { q: "Do you conduct mock interviews?", a: "Yes, regular mock interviews with HR and technical rounds are conducted by industry experts." },
-      { q: "Will you help with resume building?", a: "Absolutely! Our career services team helps you create ATS-friendly resumes and optimize your LinkedIn profile." },
+      { q: "Do you offer placement assistance?", a: "Yes — 100% placement support including job referrals, interview scheduling, and career counseling." },
+      { q: "Which companies hire from AOTMS?", a: "TCS, Infosys, Wipro, Accenture, Amazon and many high-growth startups actively hire our graduates." },
+      { q: "Do you conduct mock interviews?", a: "Yes! Regular HR and technical mock interviews with industry experts are part of preparation." },
+      { q: "Will you help with resume building?", a: "Yes. Our team creates ATS-friendly resumes and optimizes your LinkedIn for maximum visibility." },
     ],
   },
   {
-    title: "Certification & Fees",
-    icon: Award,
+    category: "Fees & Certification", icon: Award, color: "bg-orange-500",
     questions: [
-      { q: "Will I get a certificate upon completion?", a: "Yes, you'll receive an industry-recognized course completion certificate and project certificates." },
-      { q: "Do you offer installment options for fees?", a: "Yes, we offer flexible EMI options. Pay in 3-6 easy installments with no additional charges." },
-      { q: "Are there any scholarships available?", a: "Merit-based scholarships up to 30% are available. Early bird discounts are also offered regularly." },
-      { q: "What is included in the course fee?", a: "Course fee includes training, materials, project guidance, placement assistance, and lifetime access to resources." },
-    ],
-  },
-  {
-    title: "Tools & Technologies",
-    icon: Wrench,
-    questions: [
-      { q: "What programming languages and tools will I learn?", a: "Depending on your course - Python, Java, JavaScript, React, SQL, Git, AWS, and many more industry-standard tools." },
-      { q: "Do you provide access to premium tools and software?", a: "Yes, we provide free access to premium software, cloud platforms, and development tools during training." },
-      { q: "Will I learn the latest technologies?", a: "Our curriculum is updated quarterly to include the latest technologies and industry trends." },
-      { q: "Do you teach version control and collaboration tools?", a: "Yes, Git, GitHub, and agile collaboration tools are part of every technical course." },
-      { q: "Will I get hands-on practice with real tools?", a: "Absolutely! Every session includes practical exercises using real development environments." },
-    ],
-  },
-  {
-    title: "Location & Facilities",
-    icon: MapPin,
-    questions: [
-      { q: "Where is AOTMS located in Vijayawada?", a: "We are located in the heart of Vijayawada with easy access to public transportation." },
-      { q: "What facilities are available at the Vijayawada campus?", a: "AC classrooms, high-speed WiFi, computer labs, library, cafeteria, and recreational areas." },
-      { q: "Is parking available?", a: "Yes, free two-wheeler and four-wheeler parking is available for students." },
-      { q: "Can I visit the campus before enrolling?", a: "Yes! We encourage campus visits. Book a free demo session to experience our training firsthand." },
-      { q: "Do you have hostel facilities?", a: "We have tie-ups with nearby hostels and PGs. Our team can help you find accommodation." },
-    ],
-  },
-  {
-    title: "Technical Support & Doubt Clearing",
-    icon: HeadphonesIcon,
-    questions: [
-      { q: "How can I get my doubts cleared?", a: "Dedicated doubt-clearing sessions, one-on-one mentoring, and 24/7 community support are available." },
-      { q: "Is there support available after course completion?", a: "Yes, you get 6 months of post-course support for doubts, job assistance, and career guidance." },
-      { q: "Can I access trainers outside class hours?", a: "Yes, trainers are available via our learning portal and WhatsApp groups for quick queries." },
-      { q: "Do you have an online learning portal?", a: "Yes, our LMS portal includes video lectures, assignments, quizzes, and progress tracking." },
+      { q: "Do you offer EMI or installments?", a: "Yes, flexible EMI plans with 3–6 installments at zero extra charge." },
+      { q: "Will I receive a certificate?", a: "Yes — industry-recognized course completion + project certificates are issued upon finishing." },
+      { q: "Are there any scholarships?", a: "Merit-based scholarships up to 30% and regular early-bird discounts are offered." },
+      { q: "What is included in the course fee?", a: "Training, materials, project guidance, placement support, and lifetime resource access." },
     ],
   },
 ];
 
 const FAQSection = () => {
-  const containerRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"],
-  });
-
-  // Map scroll progress to frame index (playing only first 60 frames for slower effect)
-  const TOTAL_FRAMES = 224;
-  const frameIndex = useTransform(scrollYProgress, [0, 1], [0, 60]);
-
-  useEffect(() => {
-    const loadImages = async () => {
-      const imageUrls = import.meta.glob('@/Home_images/*.jpg', { eager: true, query: '?url', import: 'default' });
-      const sortedUrls = Object.keys(imageUrls)
-        .sort((a, b) => {
-          const aNum = parseInt(a.match(/frame-(\d+)/)?.[1] || "0");
-          const bNum = parseInt(b.match(/frame-(\d+)/)?.[1] || "0");
-          return aNum - bNum;
-        })
-        .map(key => imageUrls[key] as string);
-
-      const loadedImages: HTMLImageElement[] = [];
-      for (const url of sortedUrls) {
-        const img = new Image();
-        img.src = url;
-        await new Promise((resolve) => {
-          img.onload = () => resolve(null);
-          img.onerror = () => resolve(null);
-        });
-        loadedImages.push(img);
-      }
-      setImages(loadedImages);
-      setIsLoaded(true);
-    };
-    loadImages();
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded || images.length === 0) return;
-
-    const renderFrame = (index: number) => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (!canvas || !ctx) return;
-
-      const img = images[Math.round(index)];
-      if (!img) return;
-
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
-
-      const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-      const x = (canvas.width / 2) - (img.width / 2) * scale;
-      const y = (canvas.height / 2) - (img.height / 2) * scale;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-    };
-
-    const handleResize = () => renderFrame(frameIndex.get());
-    window.addEventListener("resize", handleResize);
-    renderFrame(0);
-
-    const unsubscribe = frameIndex.on("change", (latest) => renderFrame(latest));
-    return () => {
-      unsubscribe();
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [isLoaded, frameIndex, images]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
 
   return (
-    <section ref={containerRef} id="faq" className="section-padding bg-muted/30">
-      <div className="container-width">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
-        >
-          <h2 className="font-heading text-3xl md:text-4xl lg:text-5xl text-foreground mb-4">
-            Frequently Asked <span className="text-accent">Questions</span>
+    <section id="faq" className="relative py-16 md:py-24 overflow-hidden">
+      <FAQBg />
+      <div className="absolute inset-0 bg-white/60" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55 }} className="text-center mb-12 md:mb-16">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-widest mb-5">
+            <HelpCircle className="w-3.5 h-3.5" /> Support Center
+          </span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 mb-4 leading-tight tracking-tight">
+            Frequently Asked <span className="text-blue-600">Questions</span>
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to know about AOTMS training programs
+          <p className="text-slate-600 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
+            Everything you need to know about AOTMS programs, placements, and our training process.
           </p>
         </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          {/* Left Side - Sticky Visual (1080x1920 aspect ratio) */}
-          <div className="hidden lg:block lg:col-span-5 relative">
-            <div className="sticky top-24 w-full lg:aspect-[10/12] rounded-3xl overflow-hidden border-4 border-white/10 shadow-2xl bg-black z-10">
-              <canvas ref={canvasRef} className="w-full h-full block object-cover" />
-              {!isLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center text-white/50 font-mono tracking-widest text-sm">
-                  INITIALIZING...
-                </div>
-              )}
-            </div>
-          </div>
-              
-          {/* Right Side - FAQ Content */}
-          <div className="lg:col-span-7 space-y-12 lg:space-y-32 relative z-0 pb-24">
-            {faqCategories.map((category, categoryIndex) => (
-              <motion.div
-                key={category.title}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: categoryIndex * 0.1 }}
-                className="bg-card rounded-2xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                    <category.icon className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="font-heading text-lg sm:text-xl text-foreground">
-                    {category.title}
-                  </h3>
-                </div>
-
-                <Accordion type="single" collapsible className="space-y-2">
-                  {category.questions.map((item, index) => (
-                    <AccordionItem
-                      key={index}
-                      value={`${categoryIndex}-${index}`}
-                      className="border border-border/50 rounded-xl px-4 data-[state=open]:bg-muted/50"
-                    >
-                      <AccordionTrigger className="text-left text-sm sm:text-base font-medium hover:no-underline py-3">
-                        {item.q}
-                      </AccordionTrigger>
-                      <AccordionContent className="text-muted-foreground text-sm pb-4">
-                        {item.a}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </motion.div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          {faqGroups.map((group, gi) => (
+            <motion.div key={group.category} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: gi * 0.08 }}
+              className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className={`flex items-center gap-3 px-6 py-4 ${group.color}`}>
+                <group.icon className="w-5 h-5 text-white" />
+                <h3 className="font-bold text-white text-base tracking-wide">{group.category}</h3>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {group.questions.map((item, qi) => {
+                  const id = `${gi}-${qi}`;
+                  const isOpen = openId === id;
+                  return (
+                    <div key={qi}>
+                      <button onClick={() => toggle(id)} className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left hover:bg-slate-50 transition-colors">
+                        <span className="font-semibold text-slate-800 text-sm md:text-base leading-snug">{item.q}</span>
+                        <ChevronDown className={`w-4 h-4 flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {isOpen && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} transition={{ duration: 0.25 }} className="px-6 pb-5">
+                          <p className="text-slate-500 text-sm md:text-base leading-relaxed">{item.a}</p>
+                        </motion.div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

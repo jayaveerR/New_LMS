@@ -204,7 +204,7 @@ export function SmartAlerts() {
                 <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {[
                         { label: "Create Course", color: "bg-blue-600 hover:bg-blue-700" },
                         { label: "Start Live Class", color: "bg-emerald-600 hover:bg-emerald-700" },

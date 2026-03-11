@@ -2,75 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AOTMS Design System */
-
 @layer base {
   :root {
-    /* Core backgrounds */
-    --background: 0 0% 100%;
-    --background-alt: 0 0% 97%;
-    --foreground: 0 0% 12%;
+    /* Silicon Valley Premium - Clean, Professional, High-Tech */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 8%;
 
-    /* Brand colors */
-    --primary: 229 71% 50%;
+    /* Calibrated Brand Identity */
+    --primary: 205 100% 42%; /* Professional Deep Blue */
     --primary-foreground: 0 0% 100%;
 
-    --accent: 24 95% 53%;
+    --accent: 25 100% 50%; /* Clear Brand Orange */
     --accent-foreground: 0 0% 100%;
 
-    /* UI colors */
+    /* Structural Refinement */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 12%;
+    --card-foreground: 222 47% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 12%;
+    --popover-foreground: 222 47% 8%;
 
-    --secondary: 229 71% 50%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 8%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 25% 32%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 229 71% 50%;
+    --border: 214.3 32% 91%;
+    --input: 214.3 32% 91%;
+    --ring: 205 100% 42%;
 
     --radius: 0.75rem;
 
-    /* Gradients */
-    --gradient-orange: linear-gradient(135deg,
-        hsl(24 95% 53%) 0%,
-        hsl(28 100% 60%) 100%);
-    --gradient-blue: linear-gradient(135deg,
-        hsl(229 71% 50%) 0%,
-        hsl(235 80% 60%) 100%);
-    --gradient-hero: linear-gradient(135deg,
-        hsl(0 0% 100%) 0%,
-        hsl(229 30% 97%) 100%);
+    /* Professional Gradients */
+    --gradient-brand: linear-gradient(
+      135deg,
+      hsl(205 100% 42%) 0%,
+      hsl(200 90% 48%) 100%
+    );
+    --gradient-subtle: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(248, 250, 252, 1) 100%
+    );
 
-    /* Shadows */
-    --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.08);
-    --shadow-md: 0 4px 16px -4px hsl(0 0% 0% / 0.12);
-    --shadow-lg: 0 8px 32px -8px hsl(0 0% 0% / 0.16);
-    --shadow-glow-orange: 0 8px 32px -8px hsl(24 95% 53% / 0.4);
-    --shadow-glow-blue: 0 8px 32px -8px hsl(229 71% 50% / 0.4);
+    /* Elegant Shadows */
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-premium:
+      0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
 
-    /* Sidebar (keeping defaults) */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 229 71% 96%;
-    --sidebar-accent-foreground: 229 71% 50%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-
-    /* Success color */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
+    /* Sidebar Professional */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 8%;
+    --sidebar-primary: 205 100% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222 47% 8%;
+    --sidebar-border: 214.3 32% 91%;
+    --sidebar-ring: 205 100% 42%;
   }
 }
 
@@ -78,84 +74,160 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: "Inter", system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    font-family: "Inter", "Outfit", sans-serif;
+    letter-spacing: -0.011em;
+    overflow-x: hidden;
   }
-
-  /* Hero headline font */
-  .font-hero {
-    font-family: "Bebas Neue", sans-serif;
-    font-weight: 400;
-    font-style: normal;
-    color: hsl(0 0% 14%);
+  /* Prevent any child from creating horizontal scroll on mobile */
+  * {
+    box-sizing: border-box;
   }
-
+  /* Responsive media constraints */
+  img,
+  video {
+    max-width: 100%;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
   .font-heading {
-    font-family: "Anton", sans-serif;
-    letter-spacing: 0.01em;
+    @apply font-bold tracking-tight text-slate-900;
+  }
+  /* Ensure body text and labels are always dark enough */
+  p,
+  span,
+  label {
+    color: inherit;
   }
 }
 
-/* AOTMS Design System */
-
 @layer components {
-  .section-padding {
-    @apply px-4 py-16 md:px-8 md:py-24 lg:px-16;
+  /* Premium Professional Cards */
+  .pro-card {
+    @apply bg-white border border-slate-200/60 rounded-xl transition-all duration-300;
+    box-shadow: var(--shadow-premium);
   }
 
-  .container-width {
-    @apply max-w-7xl mx-auto;
+  .pro-card-hover {
+    @apply pro-card hover:shadow-lg hover:border-primary/20;
+  }
+
+  .pro-button-primary {
+    @apply h-11 px-6 rounded-lg bg-primary text-white font-semibold text-sm transition-all duration-200 hover:bg-primary/90 active:scale-[0.98] shadow-sm;
+  }
+
+  .pro-button-secondary {
+    @apply h-11 px-6 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] shadow-xs;
+  }
+
+  .pro-button-accent {
+    @apply h-11 px-6 rounded-lg bg-accent text-white font-semibold text-sm transition-all duration-200 hover:bg-accent/90 active:scale-[0.98] shadow-sm;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border;
   }
 }
 
 @layer utilities {
-  .animate-fade-up {
-    animation: fadeUp 0.6s ease-out forwards;
+  .text-brand-blue {
+    @apply text-[hsl(205,100%,42%)];
+  }
+  .text-brand-orange {
+    @apply text-[hsl(25,100%,50%)];
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+  .mesh-bg {
+    background-color: #f1f5f9; /* Darker slate-100 base */
+    background-image:
+      radial-gradient(
+        at 0% 0%,
+        hsla(205, 100%, 42%, 0.25) 0px,
+        transparent 55%
+      ),
+      /* Primary Blue */
+        radial-gradient(
+          at 100% 0%,
+          hsla(25, 100%, 50%, 0.2) 0px,
+          transparent 55%
+        ),
+      /* Accent Orange */
+        radial-gradient(
+          at 100% 100%,
+          hsla(205, 100%, 42%, 0.25) 0px,
+          transparent 55%
+        ),
+      /* Primary Blue */
+        radial-gradient(
+          at 0% 100%,
+          hsla(25, 100%, 50%, 0.2) 0px,
+          transparent 55%
+        ),
+      /* Accent Orange */
+        linear-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+      /* Darker horizontal grid */
+        linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px); /* Darker vertical grid */
+    background-size:
+      100% 100%,
+      100% 100%,
+      100% 100%,
+      100% 100%,
+      40px 40px,
+      40px 40px;
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      -1px -1px,
+      -1px -1px;
   }
 
-  .hover-lift {
-    @apply transition-all duration-300 ease-out;
+  .glass-header {
+    @apply bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/60 transition-all;
   }
 
-  .hover-lift:hover {
-    @apply -translate-y-1;
-    box-shadow: var(--shadow-lg);
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
   }
-
-  .gradient-text-brand {
-    background: linear-gradient(135deg,
-        hsl(229 71% 50%) 0%,
-        hsl(24 95% 53%) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full hover:bg-slate-300;
   }
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Page Transitions */
+.page-fade-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 300ms,
+    transform 300ms;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+/* ── Recharts mobile containment ───────────────────────── */
+/* Prevents recharts ResponsiveContainer from blowing out its parent on mobile */
+.recharts-responsive-container {
+  overflow: hidden !important;
+}
+/* Ensure all dashboard main content cards don't overflow viewport */
+@media (max-width: 767px) {
+  .recharts-wrapper,
+  .recharts-surface {
+    overflow: visible;
   }
-
-  to {
-    opacity: 1;
+  /* Force the recharts container to respect parent bounds */
+  .recharts-responsive-container {
+    max-width: 100% !important;
+    width: 100% !important;
   }
 }

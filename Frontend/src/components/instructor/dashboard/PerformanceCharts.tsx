@@ -73,22 +73,22 @@ export function PerformanceCharts({ loading }: PerformanceChartsProps) {
 
     return (
         <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="mb-6 bg-muted/50">
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="performance">Performance</TabsTrigger>
-                <TabsTrigger value="engagement">Engagement</TabsTrigger>
-                <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+            <TabsList className="mb-4 md:mb-6 bg-muted/50 flex-wrap h-auto p-1 justify-start">
+                <TabsTrigger value="activity" className="flex-grow sm:flex-grow-0">Activity</TabsTrigger>
+                <TabsTrigger value="performance" className="flex-grow sm:flex-grow-0">Performance</TabsTrigger>
+                <TabsTrigger value="engagement" className="flex-grow sm:flex-grow-0">Engagement</TabsTrigger>
+                <TabsTrigger value="heatmap" className="flex-grow sm:flex-grow-0">Heatmap</TabsTrigger>
             </TabsList>
 
             <TabsContent value="activity">
-                <Card className="border-border/50 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">Weekly Student Activity</CardTitle>
+                <Card className="border-border/50 shadow-sm overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm sm:text-base font-semibold">Weekly Student Activity</CardTitle>
                         <p className="text-xs text-muted-foreground">Active students and new enrollments per day</p>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={260}>
-                            <AreaChart data={weeklyActivity}>
+                    <CardContent className="overflow-hidden px-1 sm:px-6 pb-2 sm:pb-6">
+                        <ResponsiveContainer width="99%" height={220}>
+                            <AreaChart data={weeklyActivity} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                                 <defs>
                                     <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -100,10 +100,10 @@ export function PerformanceCharts({ loading }: PerformanceChartsProps) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                                <YAxis tick={{ fontSize: 12 }} />
+                                <XAxis dataKey="day" tick={{ fontSize: 10 }} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10 }} width={28} />
                                 <Tooltip />
-                                <Legend />
+                                <Legend wrapperStyle={{ fontSize: '10px' }} />
                                 <Area type="monotone" dataKey="active" name="Active Students" stroke="#3b82f6" fill="url(#activeGrad)" strokeWidth={2} />
                                 <Area type="monotone" dataKey="newEnroll" name="New Enrollments" stroke="#10b981" fill="url(#enrollGrad)" strokeWidth={2} />
                             </AreaChart>
@@ -113,21 +113,21 @@ export function PerformanceCharts({ loading }: PerformanceChartsProps) {
             </TabsContent>
 
             <TabsContent value="performance">
-                <Card className="border-border/50 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">Course-Wise Performance</CardTitle>
+                <Card className="border-border/50 shadow-sm overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm sm:text-base font-semibold">Course-Wise Performance</CardTitle>
                         <p className="text-xs text-muted-foreground">Completion rate vs student satisfaction</p>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={coursePerformance} barGap={4}>
+                    <CardContent className="overflow-hidden px-1 sm:px-6 pb-2 sm:pb-6">
+                        <ResponsiveContainer width="99%" height={200}>
+                            <BarChart data={coursePerformance} barGap={2} barCategoryGap="20%" margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                <YAxis tick={{ fontSize: 12 }} unit="%" domain={[0, 100]} />
+                                <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} tickLine={false} />
+                                <YAxis tick={{ fontSize: 9 }} unit="%" domain={[0, 100]} width={28} />
                                 <Tooltip formatter={(v: number) => `${v}%`} />
-                                <Legend />
-                                <Bar dataKey="completion" name="Completion %" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="satisfaction" name="Satisfaction %" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                <Legend wrapperStyle={{ fontSize: '10px' }} />
+                                <Bar dataKey="completion" name="Completion %" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                                <Bar dataKey="satisfaction" name="Satisfaction %" fill="#f97316" radius={[3, 3, 0, 0]} maxBarSize={18} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -135,13 +135,13 @@ export function PerformanceCharts({ loading }: PerformanceChartsProps) {
             </TabsContent>
 
             <TabsContent value="engagement">
-                <Card className="border-border/50 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">Overall Engagement</CardTitle>
+                <Card className="border-border/50 shadow-sm overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm sm:text-base font-semibold">Overall Engagement</CardTitle>
                         <p className="text-xs text-muted-foreground">Pass vs Fail & completion distribution</p>
                     </CardHeader>
-                    <CardContent className="flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height={260}>
+                    <CardContent className="overflow-hidden flex items-center justify-center px-1 sm:px-6">
+                        <ResponsiveContainer width="99%" height={220}>
                             <PieChart>
                                 <Pie
                                     data={engagementData}

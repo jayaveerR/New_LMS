@@ -25,7 +25,7 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
         return (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <Card key={i} className="overflow-hidden border-0 shadow-sm bg-card/60 backdrop-blur-xl">
+                    <Card key={i} className="pro-card border-none shadow-sm overflow-hidden">
                         <Skeleton className="h-48 w-full" />
                         <CardHeader className="space-y-3">
                             <Skeleton className="h-5 w-3/4 rounded-full" />
@@ -75,9 +75,9 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
                         key={course.id}
                         className="group relative"
                     >
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-blue-600 rounded-3xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/10 to-accent/10 rounded-[2rem] blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
                         <Card
-                            className="relative flex flex-col h-full overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer rounded-3xl"
+                            className="pro-card relative flex flex-col h-full overflow-hidden cursor-pointer"
                             onClick={() => onSelectCourse && onSelectCourse(course)}
                         >
                             <div className="aspect-[16/10] relative overflow-hidden bg-muted">
@@ -111,7 +111,7 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
                                         {course.title}
                                     </CardTitle>
                                 </div>
-                                <CardDescription className="line-clamp-2 mt-2 text-sm text-muted-foreground/80 leading-relaxed">
+                                <CardDescription className="line-clamp-2 mt-2 text-sm text-muted-foreground leading-relaxed">
                                     {course.description || "Explore this comprehensive course and enhance your skills."}
                                 </CardDescription>
                             </CardHeader>
@@ -139,7 +139,7 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
                                 ) : (
                                     <div className="mt-auto space-y-3">
                                         <Button
-                                            className="w-full group/btn rounded-xl h-11 text-sm font-semibold bg-primary/90 hover:bg-primary shadow-lg shadow-primary/20 transition-all active:scale-95"
+                                            className="w-full group/btn pro-button-primary"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (onSelectCourse) onSelectCourse(course);

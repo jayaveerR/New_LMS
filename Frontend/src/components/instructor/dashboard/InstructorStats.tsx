@@ -137,7 +137,7 @@ export function InstructorStats({ coursesCount, stats, loading }: InstructorStat
 
     if (loading) {
         return (
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => (
                     <Card key={i} className="border-border/50">
                         <CardContent className="p-5">
@@ -152,7 +152,7 @@ export function InstructorStats({ coursesCount, stats, loading }: InstructorStat
     }
 
     return (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((card, i) => (
                 <motion.div key={card.title} custom={i} variants={itemVariants} initial="hidden" animate="visible">
                     <Card className="border-border/50 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer">
