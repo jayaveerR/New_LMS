@@ -1,5 +1,5 @@
 import logo from "@/assets/logo.png";
-import { Linkedin, Instagram, Facebook, Mail, Phone, MapPin } from "lucide-react";
+import { Linkedin, Instagram, Facebook, Mail, Phone, MapPin, Twitter, Compass } from "lucide-react";
 
 const Footer = () => {
   const year = new Date().getFullYear();
@@ -11,9 +11,11 @@ const Footer = () => {
   };
 
   const socials = [
-    { icon: Linkedin,  href: "#", label: "LinkedIn",  bg: "hover:bg-blue-600" },
-    { icon: Instagram, href: "#", label: "Instagram", bg: "hover:bg-pink-600" },
-    { icon: Facebook,  href: "#", label: "Facebook",  bg: "hover:bg-blue-700" },
+    { icon: Linkedin,  href: "#", label: "LinkedIn",  color: "#0077b5" },
+    { icon: Instagram, href: "#", label: "Instagram", color: "#E4405F" },
+    { icon: Facebook,  href: "#", label: "Facebook",  color: "#1877F2" },
+    { icon: Twitter,   href: "#", label: "Twitter",   color: "#000000" },
+    { icon: Mail,      href: "mailto:hello@aotms.com", label: "Email", color: "#FD5A1A" },
   ];
 
   return (
@@ -33,7 +35,9 @@ const Footer = () => {
 
           {/* Brand Column */}
           <div className="sm:col-span-2 lg:col-span-2">
-            <img src={logo} alt="AOTMS Logo" className="h-12 mb-5 brightness-0 invert" />
+            <div className="inline-block bg-white px-6 py-3 rounded-xl mb-6 shadow-lg">
+              <img src={logo} alt="AOTMS Logo" className="h-16 w-auto" />
+            </div>
             <p className="text-[#FDFEFE]/85 text-sm md:text-base leading-relaxed mb-6 max-w-sm font-medium">
               Vijayawada's premier LMS platform for skill-based learning, secure exams, and 100% placement support.
             </p>
@@ -97,16 +101,18 @@ const Footer = () => {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-[#FDFEFE]/75 text-sm font-medium">© {year} AOTMS. All rights reserved.</p>
-          <div className="flex gap-2">
-            {socials.map((s, i) => (
+          <div className="flex gap-4">
+            {socials.map((s) => (
               <a
                 key={s.label}
                 href={s.href}
                 aria-label={s.label}
-                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-[#FDFEFE]/70 hover:text-[#FDFEFE] transition-all group relative overflow-hidden"
+                className="w-11 h-11 rounded-full bg-[#FDFEFE] flex items-center justify-center shadow-lg hover:shadow-white/20 hover:-translate-y-1.5 transition-all duration-300 group active:scale-90"
               >
-                <div className={`absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${i % 2 === 0 ? "bg-[#FD5A1A]" : "bg-[#FD5A1A]/80"}`} />
-                <s.icon className="w-4 h-4 relative z-10" />
+                <s.icon 
+                  className="w-5 h-5 transition-all duration-300" 
+                  style={{ color: s.color }} 
+                />
               </a>
             ))}
           </div>
