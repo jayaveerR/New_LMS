@@ -3,7 +3,13 @@ import { ArrowRight, BookOpen, Phone, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const CTABackground = () => (
-  <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <svg
+    className="absolute inset-0 w-full h-full"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 1200 600"
+    preserveAspectRatio="xMidYMid slice"
+    aria-hidden="true"
+  >
     <defs>
       <linearGradient id="cta-blue-grad" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stopColor="#0075CF" />
@@ -16,10 +22,26 @@ const CTABackground = () => (
     </defs>
     {/* Geometric shards */}
     <path d="M0,0 L600,0 L300,300 Z" fill="url(#cta-blue-grad)" opacity="0.8" />
-    <path d="M600,0 L1200,0 L900,300 Z" fill="url(#cta-orange-grad)" opacity="0.8" />
-    <path d="M0,600 L600,600 L300,300 Z" fill="url(#cta-orange-grad)" opacity="0.8" />
-    <path d="M600,600 L1200,600 L900,300 Z" fill="url(#cta-blue-grad)" opacity="0.8" />
-    <path d="M300,300 L600,0 L900,300 L600,600 Z" fill="#FDFEFE" opacity="0.05" />
+    <path
+      d="M600,0 L1200,0 L900,300 Z"
+      fill="url(#cta-orange-grad)"
+      opacity="0.8"
+    />
+    <path
+      d="M0,600 L600,600 L300,300 Z"
+      fill="url(#cta-orange-grad)"
+      opacity="0.8"
+    />
+    <path
+      d="M600,600 L1200,600 L900,300 Z"
+      fill="url(#cta-blue-grad)"
+      opacity="0.8"
+    />
+    <path
+      d="M300,300 L600,0 L900,300 L600,600 Z"
+      fill="#FDFEFE"
+      opacity="0.05"
+    />
   </svg>
 );
 
@@ -27,60 +49,81 @@ const CTASection = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="py-16 md:py-24 bg-[#FDFEFE]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-20 lg:py-32 bg-[#FDFEFE] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        
+        {/* Floating Decoration Card (Behind main) */}
+        <div className="absolute -top-12 -right-12 w-64 h-64 bg-[#FD5A1A]/10 blur-3xl rounded-full" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-[#0075CF]/10 blur-3xl rounded-full" />
 
         {/* Main CTA Card */}
         <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-3xl min-h-[400px] flex items-center justify-center shadow-2xl"
-          style={{ background: "#0075CF" }}
+          transition={{ duration: 0.7 }}
+          className="relative overflow-hidden rounded-[3rem] rounded-tl-[10rem] rounded-br-[10rem] min-h-[500px] flex items-center justify-center shadow-[0_40px_100px_-20px_rgba(0,117,207,0.3)] bg-[#0075CF] border border-white/20"
         >
           <CTABackground />
 
-          <div className="relative z-10 px-6 sm:px-10 md:px-16 py-12 md:py-16 text-center">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-[#FDFEFE] text-xs font-bold uppercase tracking-widest mb-7 backdrop-blur-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FDFEFE] animate-pulse" />
-              Start Your Journey
-            </span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-[#FDFEFE] mb-5 leading-tight tracking-tight">
-              Ready to Build Your<br className="hidden sm:block" />{" "}
-              <span className="text-[#FD5A1A]">Tech Career?</span>
+          <div className="relative z-10 px-8 sm:px-12 md:px-24 py-16 md:py-24 text-center">
+            {/* Pulsing Status Badge */}
+            <div className="flex justify-center mb-8">
+              <span className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-white/10 border border-white/20 text-[#FDFEFE] text-[10px] font-black uppercase tracking-[0.3em] backdrop-blur-md">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+                Active Enrollment 2024
+              </span>
+            </div>
+
+            <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-[#FDFEFE] mb-8 leading-[1.05] tracking-tight">
+              Launch Your <br className="hidden sm:block" />
+              <span className="text-white">Future In Tech</span>
             </h2>
-            <p className="text-[#FDFEFE]/80 text-base md:text-lg max-w-2xl mx-auto mb-9 leading-relaxed">
-              Join thousands of students in Vijayawada who are mastering industry-relevant skills and landing their dream tech jobs with AOTMS LMS.
+            
+            <p className="text-[#FDFEFE]/80 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
+              Join the elite circle of graduates in Vijayawada who transformed their careers through our industry-backed learning ecosystem.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <button
                 onClick={() => navigate("/auth")}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-[#FDFEFE] text-[#0075CF] font-black text-base hover:bg-[#FFF2EC] hover:scale-105 active:scale-95 transition-all shadow-xl"
+                className="group w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 rounded-[2rem] bg-white text-[#0075CF] font-black text-lg hover:bg-[#FD5A1A] hover:text-white transition-all duration-500 shadow-2xl hover:shadow-[0_0_40px_rgba(253,90,26,0.6)]"
               >
-                Register Now <ArrowRight className="w-5 h-5 text-[#FD5A1A]" />
+                Start My Journey
+                <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
               </button>
+              
               <button
                 onClick={() => navigate("/auth")}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white/10 border border-white/25 text-[#FDFEFE] font-bold text-base hover:bg-white/20 transition-all backdrop-blur-sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 rounded-[2rem] bg-white/10 border border-white/20 text-[#FDFEFE] font-black text-lg hover:bg-white/20 transition-all backdrop-blur-xl"
               >
-                <BookOpen className="w-5 h-5" /> Explore Courses
+                <BookOpen className="w-6 h-6" /> Explore Track
               </button>
             </div>
 
-            {/* Quick contact strip */}
-            <div className="mt-10 pt-8 border-t border-white/20 flex flex-col sm:flex-row items-center justify-center gap-5 text-[#FDFEFE]/70 text-sm">
-              <a href="tel:+919876543210" className="flex items-center gap-2 hover:text-[#FDFEFE] transition-colors">
-                <Phone className="w-4 h-4 text-[#FD5A1A]" /> (+91) 98765-43210
+            {/* Support Hotline */}
+            <div className="mt-16 pt-10 border-t border-white/10 flex flex-wrap items-center justify-center gap-8">
+              <a href="tel:+919876543210" className="flex items-center gap-3 text-[#FDFEFE]/70 hover:text-[#FDFEFE] transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-[#FD5A1A] transition-all">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <span className="font-bold tracking-widest text-xs">(+91) 98765-43210</span>
               </a>
-              <span className="hidden sm:block w-1 h-1 rounded-full bg-white/30" />
-              <a href="mailto:hello@aotms.com" className="flex items-center gap-2 hover:text-[#FDFEFE] transition-colors">
-                <Mail className="w-4 h-4 text-[#FD5A1A]" /> hello@aotms.com
+              <a href="mailto:hello@aotms.com" className="flex items-center gap-3 text-[#FDFEFE]/70 hover:text-[#FDFEFE] transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-[#FD5A1A] transition-all">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <span className="font-bold tracking-widest text-xs">hello@aotms.com</span>
               </a>
             </div>
           </div>
-        </motion.div>
 
+          {/* Abstract corner shard decoration */}
+          <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-white/5 blur-2xl transform rotate-45" />
+        </motion.div>
       </div>
     </section>
   );

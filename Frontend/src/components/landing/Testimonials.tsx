@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 const TestBg = () => (
   <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -42,75 +42,205 @@ const TestBg = () => (
 );
 
 const testimonials = [
-  { name: "Aditya Krishnan", role: "SDE-1 @ Microsoft",     course: "Full Stack Dev",  text: "AOTMS transformed my career. The live classes and hands-on projects helped me land my dream job within 6 months.", avatar: "AK", rating: 5 },
-  { name: "Meera Nair",      role: "Data Analyst @ Infosys", course: "Data Science",    text: "The curriculum is perfectly aligned with industry needs. The ATS resume scoring feature was a complete game-changer.", avatar: "MN", rating: 5 },
-  { name: "Sanjay Gupta",    role: "Cloud Architect @ TCS",  course: "Cloud Computing", text: "Excellent instructors. The secure exam system built my confidence and the placement support was outstanding.", avatar: "SG", rating: 5 },
-  { name: "Lakshmi Devi",    role: "UI Developer @ Wipro",   course: "UI/UX Design",    text: "Zero design experience to a UI Developer role — AOTMS's structured program and mentors made it possible.", avatar: "LD", rating: 5 },
+  { 
+    name: "Aditya Krishnan", 
+    role: "SDE-1 @ Microsoft", 
+    course: "Full Stack Dev", 
+    text: "AOTMS transformed my career. The live classes and hands-on projects helped me land my dream job within 6 months.", 
+    avatar: "AK", 
+    rating: 5,
+    stats: { score: "98%", hirable: "READY", time: "180 Days" }
+  },
+  { 
+    name: "Meera Nair", 
+    role: "Data Analyst @ Infosys", 
+    course: "Data Science", 
+    text: "The curriculum is perfectly aligned with industry needs. The ATS resume scoring feature was a complete game-changer.", 
+    avatar: "MN", 
+    rating: 5,
+    stats: { score: "94%", hirable: "PREMIUM", time: "120 Days" }
+  },
+  { 
+    name: "Sanjay Gupta", 
+    role: "Cloud Architect @ TCS", 
+    course: "Cloud Computing", 
+    text: "Excellent instructors. The secure exam system built my confidence and the placement support was outstanding.", 
+    avatar: "SG", 
+    rating: 5,
+    stats: { score: "96%", hirable: "VERIFIED", time: "145 Days" }
+  },
+  { 
+    name: "Lakshmi Devi", 
+    role: "UI Developer @ Wipro", 
+    course: "UI/UX Design", 
+    text: "Zero design experience to a UI Developer role — AOTMS's structured program and mentors made it possible.", 
+    avatar: "LD", 
+    rating: 5,
+    stats: { score: "99%", hirable: "EXPERT", time: "90 Days" }
+  },
 ];
 
 const Testimonials = () => {
   const [current, setCurrent] = useState(0);
-  const prev = () => setCurrent((c) => (c === 0 ? testimonials.length - 1 : c - 1));
-  const next = () => setCurrent((c) => (c === testimonials.length - 1 ? 0 : c + 1));
+  const [direction, setDirection] = useState(0); // -1 for left, 1 for right
+
+  const paginate = useCallback((newDirection: number) => {
+    setDirection(newDirection);
+    setCurrent((prev) => (prev + newDirection + testimonials.length) % testimonials.length);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      paginate(1);
+    }, 5000); // Auto-play every 5 seconds
+
+    return () => clearInterval(timer);
+  }, [paginate]);
+
   const t = testimonials[current];
 
   return (
-    <section id="testimonials" className="relative py-16 md:py-24 overflow-hidden">
+    <section id="testimonials" className="relative py-24 lg:py-40 bg-[#FDFEFE] overflow-hidden">
       <TestBg />
-      <div className="absolute inset-0 bg-[#FDFEFE]/60" />
+      
+      {/* Dynamic Aura */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#0075CF]/5 blur-[150px] rounded-full pointer-events-none" />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55 }} className="text-center mb-12 md:mb-16">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFF2EC] text-[#FD5A1A] text-xs font-bold uppercase tracking-widest mb-5">
-            <Star className="w-3.5 h-3.5 fill-[#FD5A1A]" /> Success Stories
-          </span>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 mb-4 leading-tight tracking-tight">
-            What Our <span className="text-[#FD5A1A]">Students Say</span>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          whileInView={{ opacity: 1, scale: 1 }} 
+          viewport={{ once: true }} 
+          className="text-center mb-20 lg:mb-32"
+        >
+          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-white border border-[#0075CF]/10 shadow-xl shadow-slate-200/50 text-[#0075CF] text-xs font-black uppercase tracking-[0.3em] mb-8">
+            <span className="w-2 h-2 rounded-full bg-[#FD5A1A] animate-ping" />
+            Verified Career Results
+          </div>
+          <h2 className="text-4xl sm:text-5xl md:text-7xl font-black text-slate-900 mb-8 leading-[1.1] tracking-tighter">
+            Impact That <span className="text-[#0075CF]">Speaks</span> <br className="hidden md:block"/>
+            <span className="text-[#FD5A1A]">For Itself</span>
           </h2>
-          <p className="text-slate-600 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            Trusted by 2000+ graduates powering careers across India's top tech companies.
+          <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-medium">
+            Join the elite circle of graduates in Vijayawada who transformed their aspirations into career-defining roles.
           </p>
         </motion.div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-          <div className="relative min-h-[320px]">
-            <AnimatePresence mode="wait">
-              <motion.div key={current} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.35 }}
-                className="bg-white/90 backdrop-blur-md rounded-3xl border border-slate-100 shadow-lg p-7 md:p-10">
-                <Quote className="w-10 h-10 text-[#FFF2EC] fill-[#FD5A1A]/10 mb-4" />
-                <p className="text-slate-700 text-base md:text-lg leading-relaxed font-medium mb-7">"{t.text}"</p>
-                <div className="flex items-center gap-1 mb-5">
-                  {Array.from({ length: t.rating }).map((_, i) => <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0075CF] to-[#FD5A1A] flex items-center justify-center text-[#FDFEFE] font-black text-sm flex-shrink-0">{t.avatar}</div>
-                  <div>
-                    <p className="font-bold text-slate-900">{t.name}</p>
-                    <p className="text-sm text-[#0075CF] font-semibold">{t.role}</p>
+
+        <div className="relative flex flex-col items-center">
+          {/* Main Kinetic Stage */}
+          <div className="relative w-full max-w-5xl aspect-[16/10] md:aspect-[16/8] flex items-center justify-center">
+            
+            {/* Background "Ghost" Cards */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none scale-110 blur-sm">
+                <div className="w-full h-full border-[10px] border-[#0075CF]/20 rounded-[4rem] rotate-2" />
+            </div>
+
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={current}
+                custom={direction}
+                initial={{ opacity: 0, x: direction > 0 ? 100 : -100, scale: 0.8, rotateY: direction > 0 ? 15 : -15 }}
+                animate={{ opacity: 1, x: 0, scale: 1, rotateY: 0 }}
+                exit={{ opacity: 0, x: direction > 0 ? -100 : 100, scale: 0.8, rotateY: direction > 0 ? -15 : 15 }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="relative w-full h-full"
+              >
+                <div className="w-full h-full bg-white rounded-[3rem] md:rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,117,207,0.15)] border border-white p-8 md:p-16 flex flex-col lg:flex-row items-center gap-10 lg:gap-20 overflow-hidden">
+                  
+                  {/* Decorative Shard */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-bl-[10rem] -z-10 group-hover:bg-[#0075CF]/5 transition-colors" />
+
+                  {/* Left: Portait & Stats */}
+                  <div className="w-full lg:w-1/3 flex flex-col items-center lg:items-start">
+                    <div className="relative mb-8">
+                       <div className="w-32 h-32 md:w-48 md:h-48 rounded-[2.5rem] bg-gradient-to-br from-[#0075CF] to-[#3391D9] flex items-center justify-center text-white text-4xl md:text-6xl font-black shadow-2xl relative z-10">
+                         {t.avatar}
+                       </div>
+                       {/* Animated orbit */}
+                       <div className="absolute -inset-4 border border-dashed border-[#0075CF]/20 rounded-[3rem] animate-[spin_10s_linear_infinite]" />
+                    </div>
+                    
+                    {/* Telemetry Grid */}
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Score</p>
+                         <p className="text-xl font-black text-[#0075CF]">{t.stats.score}</p>
+                       </div>
+                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rank</p>
+                         <p className="text-xl font-black text-[#FD5A1A]">{t.stats.hirable}</p>
+                       </div>
+                    </div>
                   </div>
-                  <div className="ml-auto"><span className="px-3 py-1 bg-[#FFF2EC] text-[#FD5A1A] rounded-lg text-[10px] font-bold uppercase tracking-wider">{t.course}</span></div>
+
+                  {/* Right: Testimony */}
+                  <div className="w-full lg:w-2/3 flex flex-col">
+                    <div className="flex items-center gap-2 mb-6">
+                      {Array.from({ length: t.rating }).map((_, i) => (
+                        <Star key={i} className="w-5 h-5 fill-[#FD5A1A] text-[#FD5A1A]" />
+                      ))}
+                    </div>
+
+                    <p className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 leading-[1.2] tracking-tight mb-10 italic">
+                      "{t.text}"
+                    </p>
+
+                    <div className="mt-auto flex items-end justify-between border-t border-slate-100 pt-8">
+                      <div>
+                        <h4 className="text-2xl font-black text-slate-900 mb-1">{t.name}</h4>
+                        <p className="text-[#0075CF] font-bold tracking-tight">{t.role}</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Verification</p>
+                        <div className="px-4 py-1.5 bg-[#E6F2FA] text-[#0075CF] text-[10px] font-black rounded-full border border-[#0075CF]/10">
+                          {t.stats.time} TO HIRED
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </AnimatePresence>
-            <div className="flex items-center gap-3 mt-5">
-              <button onClick={prev} className="w-11 h-11 rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-center hover:border-[#AADBFA] hover:text-[#0075CF] transition-colors shadow-sm"><ChevronLeft className="w-5 h-5" /></button>
-              <button onClick={next} className="w-11 h-11 rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-center hover:border-[#AADBFA] hover:text-[#0075CF] transition-colors shadow-sm"><ChevronRight className="w-5 h-5" /></button>
-              <div className="flex gap-2 ml-2">
-                {testimonials.map((_, i) => (
-                  <button key={i} onClick={() => setCurrent(i)} className={`h-2 rounded-full transition-all duration-300 ${i === current ? "w-6 bg-[#0075CF]" : "w-2 bg-slate-200 hover:bg-slate-300"}`} />
-                ))}
-              </div>
+
+            {/* Navigation Orbitals */}
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-4 md:px-0 pointer-events-none">
+              <button 
+                onClick={() => paginate(-1)}
+                className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white shadow-2xl flex items-center justify-center border border-slate-100 text-slate-400 hover:text-[#0075CF] hover:border-[#0075CF] hover:scale-110 active:scale-95 transition-all pointer-events-auto -ml-8 md:-ml-10"
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </button>
+              <button 
+                onClick={() => paginate(1)}
+                className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white shadow-2xl flex items-center justify-center border border-slate-100 text-slate-400 hover:text-[#FD5A1A] hover:border-[#FD5A1A] hover:scale-110 active:scale-95 transition-all pointer-events-auto -mr-8 md:-mr-10"
+              >
+                <ChevronRight className="w-8 h-8" />
+              </button>
             </div>
           </div>
-          <div className="flex flex-col gap-4">
-            {testimonials.map((item, i) => (
-              <motion.button key={i} onClick={() => setCurrent(i)} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
-                className={`flex items-start gap-4 p-4 rounded-2xl border text-left transition-all duration-200 w-full ${i === current ? "border-[#AADBFA] bg-[#E6F2FA]/80 backdrop-blur-sm shadow-md" : "border-slate-100 bg-white/80 backdrop-blur-sm hover:border-slate-200 hover:shadow-sm"}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[#FDFEFE] font-black text-xs flex-shrink-0 ${i === current ? "bg-gradient-to-br from-[#0075CF] to-[#FD5A1A]" : "bg-slate-200 text-slate-600"}`}>{item.avatar}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 text-sm">{item.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{item.role}</p>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{item.text}</p>
-                </div>
-              </motion.button>
+
+          {/* Timeline Indicators */}
+          <div className="mt-16 flex items-center gap-4">
+            {testimonials.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setDirection(i > current ? 1 : -1);
+                  setCurrent(i);
+                }}
+                className={`relative h-1.5 transition-all duration-700 rounded-full overflow-hidden ${
+                  i === current ? "w-20" : "w-10 bg-slate-100"
+                }`}
+              >
+                {i === current && (
+                  <motion.div 
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "0%" }}
+                    transition={{ duration: 0.5 }}
+                    className="absolute inset-0 bg-[#0075CF]"
+                  />
+                )}
+              </button>
             ))}
           </div>
         </div>

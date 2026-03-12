@@ -73,22 +73,52 @@ const KeyFeatures = () => (
           Live classes, secure exams, AI resume scoring, and more — all inside one powerful platform.
         </p>
       </motion.div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
         {features.map((f, i) => (
-          <motion.div key={f.title} initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.07 }}>
-            <div className="h-full bg-white/85 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 group flex flex-col">
-              <div className="flex items-start justify-between mb-5">
-                <div className="relative">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.gradient} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                    <f.icon className="w-6 h-6 text-[#FDFEFE]" />
-                  </div>
-                  <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-lg bg-white border border-slate-100 shadow flex items-center justify-center">
-                    <f.secondaryIcon className="w-3.5 h-3.5 text-slate-400" />
+          <motion.div 
+            key={f.title} 
+            initial={{ opacity: 0, y: 30 }} 
+            whileInView={{ opacity: 1, y: 0 }} 
+            viewport={{ once: true }} 
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+          >
+            <div className="h-full relative group p-1">
+              {/* Outer glow/border effect on hover */}
+              <div className={`absolute -inset-0.5 bg-gradient-to-br ${f.gradient} rounded-[2.5rem] opacity-0 group-hover:opacity-20 blur-md transition duration-500`} />
+              
+              <div className="relative h-full bg-white/90 backdrop-blur-xl border border-white/50 rounded-[2rem] rounded-tl-[4rem] rounded-br-[4rem] p-8 shadow-xl shadow-slate-200/50 group-hover:shadow-2xl group-hover:shadow-[#0075CF]/20 group-hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden">
+                
+                {/* Tech chip corner decoration */}
+                <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-10 group-hover:opacity-20 transition-opacity">
+                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                    <path d="M100,0 L100,20 L80,20 L80,0 Z M80,20 L80,40 L60,40 L60,20 Z" fill="currentColor" className={i % 2 === 0 ? "text-[#0075CF]" : "text-[#FD5A1A]"} />
+                    <circle cx="90" cy="10" r="4" fill="currentColor" className={i % 2 === 0 ? "text-[#0075CF]" : "text-[#FD5A1A]"} />
+                  </svg>
+                </div>
+
+                <div className="flex items-start justify-between mb-8">
+                  <div className="relative">
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${f.gradient} flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform duration-500`}>
+                      <f.icon className="w-8 h-8 text-[#FDFEFE]" />
+                    </div>
+                    {/* Pulsing decoration */}
+                    <div className={`absolute -inset-1 rounded-2xl bg-gradient-to-br ${f.gradient} opacity-20 animate-pulse`} />
+                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-[#FDFEFE] border border-slate-100 shadow-lg flex items-center justify-center group-hover:-rotate-12 transition-transform duration-500">
+                      <f.secondaryIcon className={`w-4 h-4 ${i % 2 === 0 ? "text-[#0075CF]" : "text-[#FD5A1A]"}`} />
+                    </div>
                   </div>
                 </div>
+
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-3 leading-tight tracking-tight group-hover:text-[#0075CF] transition-colors">{f.title}</h3>
+                <p className="text-slate-600 text-base leading-relaxed flex-1 font-medium">{f.description}</p>
+                
+                {/* Visual indicator bar */}
+                <div className="mt-6 flex items-center gap-2">
+                  <div className={`h-1.5 w-12 rounded-full bg-gradient-to-r ${f.gradient}`} />
+                  <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
+                  <div className="h-1.5 w-1.5 rounded-full bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
               </div>
-              <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2 leading-snug group-hover:text-[#0075CF] transition-colors">{f.title}</h3>
-              <p className="text-slate-500 text-sm md:text-base leading-relaxed flex-1">{f.description}</p>
             </div>
           </motion.div>
         ))}

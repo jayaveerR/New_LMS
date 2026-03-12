@@ -93,32 +93,66 @@ const WhyAOTMS = () => (
           We don't just teach code — we build careers. Join thousands of graduates shaping the future of tech.
         </p>
       </motion.div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-16">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10 mb-16 px-2">
         {features.map((f, i) => (
-          <motion.div key={f.title} initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.07 }}>
-            <div className="h-full bg-white/85 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-slate-100 shadow-sm hover:shadow-[#0075CF]/10 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 group flex flex-col">
-              <div className={`w-12 h-12 rounded-xl ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                <f.icon className="w-6 h-6 text-[#FDFEFE]" />
+          <motion.div 
+            key={f.title} 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            whileInView={{ opacity: 1, scale: 1 }} 
+            viewport={{ once: true }} 
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+          >
+            <div className="h-full relative group">
+              {/* Abstract Glass Shard */}
+              <div className="absolute -top-3 -left-3 w-16 h-16 bg-gradient-to-br from-[#0075CF]/20 to-transparent rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
+              
+              <div className="relative h-full bg-white/90 backdrop-blur-xl border border-white/50 rounded-[2.5rem] rounded-tr-none p-8 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-[#0075CF]/10 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden">
+                
+                {/* Tech ID Stamp */}
+                <div className="absolute top-0 right-0 px-4 py-2 bg-slate-50 border-b border-l border-slate-100 rounded-bl-2xl">
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">AOT-0{i+1}</span>
+                </div>
+
+                <div className={`w-16 h-16 rounded-2xl ${f.color} flex items-center justify-center mb-8 shadow-lg group-hover:rotate-12 transition-transform duration-500`}>
+                  <f.icon className="w-8 h-8 text-white" />
+                </div>
+                
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-3 tracking-tight group-hover:text-[#0075CF] transition-colors">{f.title}</h3>
+                <p className="text-slate-600 text-base leading-relaxed flex-1 font-medium">{f.description}</p>
+                
+                {/* Interactive corner accent */}
+                <div className="absolute bottom-0 right-0 w-12 h-12 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0">
+                  <div className={`w-full h-full ${f.color} rounded-tl-[2rem] flex items-center justify-center pl-2 pt-2`}>
+                    <Sparkles className="w-4 h-4 text-white animate-pulse" />
+                  </div>
+                </div>
               </div>
-              <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2 leading-snug">{f.title}</h3>
-              <p className="text-slate-500 text-sm md:text-base leading-relaxed flex-1">{f.description}</p>
             </div>
           </motion.div>
         ))}
       </div>
-      <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white/85 backdrop-blur-sm rounded-2xl p-6 md:p-10 border border-slate-100 shadow-sm">
-        {[
-          { value: "2000+", label: "Students Placed", color: "text-[#0075CF]" },
-          { value: "85%",   label: "Placement Rate",  color: "text-[#FD5A1A]" },
-          { value: "100+",  label: "Hiring Partners", color: "text-[#0075CF]" },
-          { value: "4.9★",  label: "Student Rating",  color: "text-[#FD5A1A]" },
-        ].map((s) => (
-          <div key={s.label} className="text-center">
-            <div className={`text-3xl md:text-4xl lg:text-5xl font-black ${s.color} tracking-tighter`}>{s.value}</div>
-            <div className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">{s.label}</div>
-          </div>
-        ))}
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }} 
+        whileInView={{ opacity: 1, y: 0 }} 
+        viewport={{ once: true }} 
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="relative p-1 rounded-[3rem] bg-gradient-to-r from-[#0075CF]/20 via-[#FD5A1A]/20 to-[#0075CF]/20 overflow-hidden"
+      >
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/90 backdrop-blur-2xl rounded-[2.9rem] p-8 md:p-12 border border-white/50">
+          {[
+            { value: "2000+", label: "Students Placed", color: "text-[#0075CF]", icon: Users },
+            { value: "85%",   label: "Placement Rate",  color: "text-[#FD5A1A]", icon: Trophy },
+            { value: "100+",  label: "Hiring Partners", color: "text-[#0075CF]", icon: Briefcase },
+            { value: "4.9★",  label: "Student Rating",  color: "text-[#FD5A1A]", icon: GraduationCap },
+          ].map((s) => (
+            <div key={s.label} className="text-center group">
+              <div className={`text-4xl md:text-5xl lg:text-6xl font-black ${s.color} tracking-tighter mb-1 group-hover:scale-110 transition-transform duration-500`}>{s.value}</div>
+              <div className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{s.label}</div>
+              {/* Subtle indicator dot */}
+              <div className={`w-1 h-1 rounded-full mx-auto mt-4 opacity-0 group-hover:opacity-100 transition-opacity ${s.color.replace("text-", "bg-")}`} />
+            </div>
+          ))}
+        </div>
       </motion.div>
     </div>
   </section>
