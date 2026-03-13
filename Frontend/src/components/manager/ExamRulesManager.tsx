@@ -6,14 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useExamRules, useCreateExamRule, useUpdateExamRule, useDeleteExamRule, useExams } from '@/hooks/useManagerData';
+import { useExamRules, useCreateExamRule, useUpdateExamRule, useDeleteExamRule, useExams, type ExamRule } from '@/hooks/useManagerData';
 import {
     Plus, Settings, Trash2, Clock, AlertTriangle, RotateCcw,
     Shuffle, Eye, Shield, BookCheck, Pencil, Gavel
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
-export function ExamRulesManager() {
+interface ExamRulesManagerProps {
+    onRuleCreated?: (rule: ExamRule) => void;
+    hideList?: boolean;
+}
+
+export function ExamRulesManager({ onRuleCreated, hideList = false }: ExamRulesManagerProps) {
     const { data: rules = [], isLoading } = useExamRules();
     const { data: exams = [] } = useExams();
     const createRule = useCreateExamRule();
@@ -51,7 +56,7 @@ export function ExamRulesManager() {
     };
 
     const handleCreate = async () => {
-        await createRule.mutateAsync({
+        const result = await createRule.mutateAsync({
             exam_id: ruleForm.exam_id || null,
             exam_schedule_id: null,
             duration_minutes: ruleForm.duration_minutes,
@@ -66,6 +71,7 @@ export function ExamRulesManager() {
         });
         resetForm();
         setIsAddOpen(false);
+        if (onRuleCreated) onRuleCreated(result);
     };
 
     const handleUpdate = async () => {
@@ -337,6 +343,7 @@ export function ExamRulesManager() {
             </div>
 
             {/* Rules List */}
+            {!hideList && (
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -457,6 +464,7 @@ export function ExamRulesManager() {
                     )}
                 </CardContent>
             </Card>
+            )}
 
             {/* Edit Dialog */}
             <Dialog open={!!editingRule} onOpenChange={(open) => !open && setEditingRule(null)}>

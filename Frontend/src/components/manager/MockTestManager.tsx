@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useMockTestConfigs, useCreateMockTestConfig, useDeleteMockTestConfig } from '@/hooks/useManagerData';
+import { useMockTestConfigs, useCreateMockTestConfig, useDeleteMockTestConfig, useUpdateMockTestConfig } from '@/hooks/useManagerData';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Trash2, Clock, ListChecks, Shuffle, Layers, ArrowRight, Settings, Target } from 'lucide-react';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,11 @@ export function MockTestManager() {
   const { data: configs = [], isLoading } = useMockTestConfigs();
   const createConfig = useCreateMockTestConfig();
   const deleteConfig = useDeleteMockTestConfig();
+  const updateConfig = useUpdateMockTestConfig();
+
+  const handleToggleActive = (id: string, current: boolean) => {
+    updateConfig.mutate({ id, is_active: !current });
+  };
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newConfig, setNewConfig] = useState({
@@ -245,7 +250,14 @@ export function MockTestManager() {
                 <div className="flex-1 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 w-full sm:w-auto">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px] font-medium h-5 px-1.5 uppercase">
+                      <Badge 
+                        variant={config.is_active ? "default" : "secondary"} 
+                        className={cn(
+                            "text-[10px] font-medium h-5 px-1.5 uppercase cursor-pointer hover:opacity-80 transition-opacity",
+                            config.is_active ? "bg-emerald-500 hover:bg-emerald-600" : ""
+                        )}
+                        onClick={() => handleToggleActive(config.id, config.is_active)}
+                      >
                         {config.is_active ? 'Active' : 'Draft'}
                       </Badge>
                       {config.topics.length > 0 && (

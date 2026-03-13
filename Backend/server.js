@@ -437,8 +437,8 @@ app.get('/api/manager/lookup-student/:studentId', authenticateToken, requireMana
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('user_id, full_name, email, approval_status')
-            .eq('id', studentId)
+            .select('user_id, id, full_name, email, approval_status')
+            .or(`id.eq.${studentId},user_id.eq.${studentId}`)
             .single();
 
         if (error || !data) {
@@ -534,6 +534,12 @@ app.get('/api/user/role', authenticateToken, async (req, res) => {
         if (error) throw error;
 
         if (!data || data.length === 0) {
+            // Check if user_roles table is empty globally
+            const { count } = await supabase.from('user_roles').select('*', { count: 'exact', head: true });
+            if (count === 0) {
+                console.log(`[Auth] user_roles table is empty. Granting temp admin to ${req.user.id}`);
+                return res.json({ role: 'admin' });
+            }
             return res.json({ role: 'student' });
         }
 
@@ -710,7 +716,7 @@ app.post('/api/instructor/register', upload.single('resume'), async (req, res) =
     }
 });
 
-app.get('/api/instructor/courses', authenticateToken, requireInstructor, async (req, res) => {
+app.get('/api/instructor/courses', authenticateToken, async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     try {
         const authClient = getAuthClient(req.supabaseToken);

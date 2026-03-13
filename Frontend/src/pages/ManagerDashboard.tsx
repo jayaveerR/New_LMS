@@ -23,6 +23,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   CalendarCheck,
   BookOpen,
@@ -39,6 +40,8 @@ import {
   Activity,
   Plus,
   KeyRound,
+  CheckCircle,
+  ArrowRight
 } from "lucide-react";
 import {
   useExams,
@@ -48,13 +51,24 @@ import {
   useMockTestConfigs,
   useExamRules,
   useExamResults,
+  type ExamRule,
 } from "@/hooks/useManagerData";
 import { cn } from "@/lib/utils";
 
 export default function ManagerDashboard() {
   const { user, userRole, loading } = useAuth();
   const [activeSection, setActiveSection] = useState("overview");
+  const [qbFlowStep, setQbFlowStep] = useState<'rules' | 'container' | 'manager'>('rules');
+  const [lastCreatedRule, setLastCreatedRule] = useState<ExamRule | null>(null);
   const navigate = useNavigate();
+
+  // Reset flow when changing sections
+  useEffect(() => {
+    if (activeSection !== "questions") {
+        setQbFlowStep('rules');
+        setLastCreatedRule(null);
+    }
+  }, [activeSection]);
 
   // Data hooks for overview
   const { data: exams = [] } = useExams();
@@ -231,13 +245,6 @@ export default function ManagerDashboard() {
                   color: "text-emerald-500",
                 },
                 {
-                  id: "exam-rules",
-                  label: "Exam Rules",
-                  icon: Gavel,
-                  desc: "Configure proctoring",
-                  color: "text-slate-600",
-                },
-                {
                   id: "video-library",
                   label: "Video Library",
                   icon: Video,
@@ -352,6 +359,98 @@ export default function ManagerDashboard() {
       case "exams":
         return <ExamScheduler />;
       case "questions":
+        if (qbFlowStep === 'rules') {
+            return (
+                <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Gavel className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight">Step 1: Define Exam Rules</h2>
+                            <p className="text-sm text-muted-foreground font-medium">Configure proctoring and behavior before adding questions</p>
+                        </div>
+                    </div>
+                    <ExamRulesManager 
+                        onRuleCreated={(rule) => {
+                            setLastCreatedRule(rule);
+                            setQbFlowStep('container');
+                        }} 
+                        hideList 
+                    />
+                </div>
+            );
+        }
+        if (qbFlowStep === 'container') {
+            return (
+                <div className="w-full h-auto min-h-[600px] flex items-center justify-center p-4 animate-in zoom-in-95 duration-500">
+                    <div 
+                        onClick={() => setQbFlowStep('manager')}
+                        className="w-full max-w-lg aspect-square bg-slate-900 border border-slate-800 rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 transition-all group overflow-hidden relative"
+                    >
+                        {/* High Fidelity Holographic Grid */}
+                        <div className="absolute inset-0 opacity-20 pointer-events-none">
+                            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
+                        </div>
+                        
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_30px_rgba(59,130,246,0.8)]" />
+                        <div className="absolute -top-32 -right-32 w-64 h-64 bg-primary/20 rounded-full blur-[100px]" />
+                        <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-accent/20 rounded-full blur-[100px]" />
+
+                        <div className="relative z-10 flex flex-col items-center px-8">
+                            <div className="h-24 w-24 rounded-[2.5rem] bg-white/5 backdrop-blur-3xl border border-white/10 flex items-center justify-center mb-8 shadow-2xl group-hover:scale-110 group-hover:-rotate-3 transition-all duration-700 relative">
+                                <Shield className="h-10 w-10 text-primary animate-pulse" />
+                                <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-emerald-500 border-4 border-slate-900 flex items-center justify-center shadow-lg">
+                                    <CheckCircle className="h-4 w-4 text-white" />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4 text-center">
+                                <Badge className="px-5 py-1.5 rounded-full border-primary/30 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.3em] backdrop-blur-md">
+                                    Protocol Initialized
+                                </Badge>
+                                <h2 className="text-4xl font-black tracking-tighter text-white leading-tight uppercase italic">
+                                    Logic <span className="text-primary not-italic">Synchronized</span>
+                                </h2>
+                                
+                                {/* Dynamic Data Preview - Frontend Retrieval Mockup */}
+                                <div className="grid grid-cols-2 gap-2 mt-6 p-4 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm text-left w-full max-w-[320px]">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Proctoring</p>
+                                        <p className="text-xs text-slate-300 font-medium">Biometric AI: Active</p>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Duration</p>
+                                        <p className="text-xs text-slate-300 font-medium">{lastCreatedRule?.duration_minutes || 60} min Session</p>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Evaluation</p>
+                                        <p className="text-xs text-slate-300 font-medium">Neg. Marking: {lastCreatedRule?.negative_marking_value || 0}</p>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Database</p>
+                                        <p className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                                            <div className="h-1 w-1 rounded-full bg-emerald-400 animate-ping" />
+                                            Stored
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-10 flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] shadow-2xl shadow-primary/40 group-hover:scale-105 group-hover:shadow-primary/60 transition-all">
+                                Launch Repository
+                                <ArrowRight className="h-5 w-5 group-hover:translate-x-1.5 transition-transform" />
+                            </div>
+                        </div>
+
+                        {/* Interactive Scan Effect */}
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-primary/40 to-transparent absolute top-0 group-hover:animate-scan" />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
         return <QuestionBankManager />;
       case "mock-tests":
         return <MockTestManager />;
@@ -365,8 +464,6 @@ export default function ManagerDashboard() {
         return <ExamMonitoring />;
       case "course-monitoring":
         return <CourseMonitoring />;
-      case "exam-rules":
-        return <ExamRulesManager />;
       case "student-access":
         return <QuestionBankStudentAccess />;
       case "video-library":

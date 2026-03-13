@@ -46,7 +46,6 @@ const examManagementItems = [
   { id: "questions", title: "Question Bank", icon: FileQuestion },
   { id: "student-access", title: "Student Access", icon: KeyRound },
   { id: "mock-tests", title: "Mock Tests", icon: ClipboardList },
-  { id: "exam-rules", title: "Exam Rules", icon: Gavel },
 ];
 
 const managementItems = [

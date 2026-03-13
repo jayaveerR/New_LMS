@@ -23,12 +23,24 @@ export interface S3CourseVideo {
 
 
 export function useInstructorS3Courses() {
-    const { user } = useAuth();
+    const { user, userRole } = useAuth();
     return useQuery({
-        queryKey: ['s3-courses', user?.id],
+        queryKey: ['s3-courses', user?.id, userRole],
         queryFn: async () => {
             if (!user?.id) return [];
-            return fetchWithAuth(`/data/courses?instructor_id=eq.${user.id}`);
+            console.log(`[useInstructorS3Courses] Fetching for user: ${user.id}, Role: ${userRole}`);
+            
+            let data;
+            // Managers and Admins can see all courses
+            if (userRole === 'manager' || userRole === 'admin') {
+                data = await fetchWithAuth('/data/courses?sort=created_at&order=desc');
+            } else {
+                // Instructors only see their own
+                data = await fetchWithAuth(`/data/courses?instructor_id=eq.${user.id}&sort=created_at&order=desc`);
+            }
+            
+            console.log(`[useInstructorS3Courses] Found ${data?.length || 0} courses`);
+            return data;
         },
         enabled: !!user?.id,
     });

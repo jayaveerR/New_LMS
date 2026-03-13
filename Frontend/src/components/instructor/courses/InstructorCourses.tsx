@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Progress } from "@/components/ui/progress";
 import { format } from 'date-fns';
 import { useInstructorS3Courses, useCreateS3Course, useS3Upload, useCreateCourseModule } from '@/hooks/useCourseBuilder';
+import { API_URL } from '@/lib/api';
 import { Course } from '@/hooks/useInstructorData';
 import { CourseBuilder } from './CourseBuilder';
 import { useToast } from "@/hooks/use-toast";
@@ -253,7 +254,7 @@ export function InstructorCourses({ limit, hideHeader }: InstructorCoursesProps 
                                     <div className="relative aspect-video bg-muted border-b">
                                         {course.thumbnail_url ? (
                                             <img
-                                                src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`}
+                                                src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `${API_URL}/s3/public/${course.thumbnail_url}`}
                                                 alt={course.title}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                 onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop'; }}

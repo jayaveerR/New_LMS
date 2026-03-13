@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useLookupStudent, useGrantExamAccess } from '@/hooks/useManagerData';
+import { useLookupStudent, useGrantExamAccess, useProfiles } from '@/hooks/useManagerData';
 import {
     Search,
     UserPlus,
@@ -30,6 +30,7 @@ export function StudentAccessManager({ selectedExamId, selectedMockId, onSuccess
     const { toast } = useToast();
 
     const { data: student, isLoading: isLookingUp, error: lookupError } = useLookupStudent(lookupId);
+    const { data: allStudents = [], isLoading: loadingStudents } = useProfiles();
     const grantAccess = useGrantExamAccess();
 
     const handleLookup = () => {
@@ -79,96 +80,165 @@ export function StudentAccessManager({ selectedExamId, selectedMockId, onSuccess
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Paste Student UUID here..."
-                                className="pl-9 h-11"
-                                value={uuidInput}
-                                onChange={(e) => setUuidInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                            />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Student Search & List */}
+                        <div className="lg:col-span-1 space-y-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search by name, email or UUID..."
+                                    className="pl-9"
+                                    value={uuidInput}
+                                    onChange={(e) => setUuidInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+                                />
+                            </div>
+
+                            <Button 
+                                variant="outline" 
+                                className="w-full gap-2 border-dashed"
+                                onClick={handleLookup}
+                                disabled={isLookingUp}
+                            >
+                                {isLookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                Manual UUID Lookup
+                            </Button>
+
+                            <div className="relative pt-2">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-background px-2 text-muted-foreground">Quick Select Students</span>
+                                </div>
+                            </div>
+
+                            <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                                {loadingStudents ? (
+                                    [1, 2, 3, 4].map(i => <div key={i} className="h-12 w-full bg-muted animate-pulse rounded-md" />)
+                                ) : (
+                                    (allStudents as any[])
+                                        .filter((s) => 
+                                            !uuidInput || 
+                                            s.full_name?.toLowerCase().includes(uuidInput.toLowerCase()) || 
+                                            s.email?.toLowerCase().includes(uuidInput.toLowerCase()) ||
+                                            s.user_id?.toLowerCase().includes(uuidInput.toLowerCase())
+                                        )
+                                        .map((s) => (
+                                            <button
+                                                key={s.user_id}
+                                                onClick={() => setLookupId(s.user_id)}
+                                                className={`w-full p-3 rounded-lg border text-left transition-all hover:bg-primary/5 group ${
+                                                    lookupId === s.user_id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                                                        {s.full_name?.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold truncate">{s.full_name || 'Unnamed'}</p>
+                                                        <p className="text-[10px] text-muted-foreground truncate">{s.email}</p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))
+                                )}
+                                {allStudents.length === 0 && !loadingStudents && (
+                                    <div className="text-center py-4 text-xs text-muted-foreground italic">
+                                        No students found in record.
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <Button onClick={handleLookup} disabled={isLookingUp} className="h-11 px-6 gap-2">
-                            {isLookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                            Lookup
-                        </Button>
+
+                        {/* Selection & Action */}
+                        <div className="lg:col-span-2">
+                            {lookupError && (
+                                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                    <XCircle className="h-4 w-4 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold">Lookup Failed</p>
+                                        <p>Could not find a student with that UUID. Please verify and try again.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {student ? (
+                                <div className="space-y-4 animate-in zoom-in-95 duration-300">
+                                    <div className="p-6 rounded-xl border border-primary/20 bg-background shadow-sm">
+                                        <div className="flex flex-col md:flex-row gap-6">
+                                            <div className="flex-1 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                        <User className="h-6 w-6" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-lg leading-none">{student.full_name || 'Unnamed Student'}</h4>
+                                                        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                                                            <Mail className="h-3 w-3" /> {student.email}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                    <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border text-xs">
+                                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                                                        <span className="font-medium">Status:</span>
+                                                        <Badge variant="outline" className="h-5 px-1.5 capitalize">{student.approval_status}</Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border text-[10px] truncate">
+                                                        <Key className="h-3.5 w-3.5 text-blue-500" />
+                                                        <span className="font-medium">ID:</span>
+                                                        <code className="text-muted-foreground">{student.user_id}</code>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col justify-end gap-2 md:w-48">
+                                                <Button
+                                                    onClick={handleConfirmAccess}
+                                                    disabled={grantAccess.isPending}
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-lg shadow-emerald-600/20"
+                                                >
+                                                    {grantAccess.isPending ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <UserPlus className="h-4 w-4" />
+                                                    )}
+                                                    Grant Exam Access
+                                                </Button>
+                                                <Button variant="ghost" size="sm" onClick={() => { setLookupId(null); setUuidInput(''); }} className="text-muted-foreground">
+                                                    Clear Selection
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                                        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Access Rule</p>
+                                        <p className="text-sm">
+                                            {selectedExamId 
+                                                ? `The student will be granted access to the scheduled Live Exam.` 
+                                                : selectedMockId 
+                                                    ? `The student will be granted access to this Practice Mock Paper.` 
+                                                    : "Select an exam from the dashboard to grant specific access."}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : !lookupId && (
+                                <div className="py-20 flex flex-col items-center justify-center text-center space-y-3 border-2 border-dashed rounded-xl opacity-60">
+                                    <FileSearch className="h-16 w-16 text-muted-foreground" />
+                                    <div className="max-w-xs transition-all">
+                                        <p className="text-lg font-bold text-slate-700">Student Selector</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Search by UUID, Email, or Name to manage specific access permissions.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
-
-                    {lookupError && (
-                        <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                            <XCircle className="h-4 w-4 mt-0.5" />
-                            <div>
-                                <p className="font-bold">Lookup Failed</p>
-                                <p>Could not find a student with that UUID. Please verify and try again.</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {student && (
-                        <div className="p-6 rounded-xl border border-primary/20 bg-background shadow-sm animate-in zoom-in-95 duration-300">
-                            <div className="flex flex-col md:flex-row gap-6">
-                                <div className="flex-1 space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                            <User className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-lg leading-none">{student.full_name || 'Unnamed Student'}</h4>
-                                            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                                                <Mail className="h-3 w-3" /> {student.email}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                                        <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border text-xs">
-                                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                                            <span className="font-medium">Status:</span>
-                                            <Badge variant="outline" className="h-5 px-1.5 capitalize">{student.approval_status}</Badge>
-                                        </div>
-                                        <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border text-[10px] truncate">
-                                            <Key className="h-3.5 w-3.5 text-blue-500" />
-                                            <span className="font-medium">ID:</span>
-                                            <code className="text-muted-foreground">{student.user_id.substring(0, 13)}...</code>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col justify-end gap-2 md:w-48">
-                                    <p className="text-[10px] text-muted-foreground text-center mb-1">
-                                        Confirmed student details?
-                                    </p>
-                                    <Button
-                                        onClick={handleConfirmAccess}
-                                        disabled={grantAccess.isPending}
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-lg shadow-emerald-600/20"
-                                    >
-                                        {grantAccess.isPending ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <UserPlus className="h-4 w-4" />
-                                        )}
-                                        Confirm Access
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => { setLookupId(null); setUuidInput(''); }} className="text-muted-foreground">
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {!student && !lookupId && (
-                        <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 opacity-40">
-                            <FileSearch className="h-12 w-12 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm font-medium">No Student Selected</p>
-                                <p className="text-xs">Paste a UUID above to manage exam permissions.</p>
-                            </div>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 

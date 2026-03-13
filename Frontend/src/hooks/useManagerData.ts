@@ -88,8 +88,10 @@ export interface ExamRule {
   exam_schedule_id: string | null;
   duration_minutes: number;
   max_attempts: number;
-  negative_marking_value: number;
-  passing_percentage: number;
+  negative_marking_value: number; // For frontend compatibility
+  passing_percentage: number;    // For frontend compatibility
+  negative_marks_per_question?: number; // DB name
+  passing_marks?: number;               // DB name
   shuffle_questions: boolean;
   shuffle_options: boolean;
   show_results_immediately: boolean;
@@ -331,7 +333,7 @@ export function useCreateMockTestConfig() {
     },
   });
 }
-
+0
 export function useUpdateMockTestConfig() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -477,7 +479,15 @@ export function useDeleteGuestCredential() {
 export function useExamRules() {
   return useQuery<ExamRule[]>({
     queryKey: ['exam-rules'],
-    queryFn: () => safeFetchWithAuth('/data/exam_rules?sort=created_at&order=desc'),
+    queryFn: async () => {
+      const data = await safeFetchWithAuth('/data/exam_rules?sort=created_at&order=desc');
+      // Normalize data for the frontend if keys match DB schema
+      return (data || []).map((rule: Partial<ExamRule>) => ({
+        ...rule,
+        negative_marking_value: rule.negative_marking_value ?? rule.negative_marks_per_question ?? 0,
+        passing_percentage: rule.passing_percentage ?? rule.passing_marks ?? 40
+      }));
+    },
     retry: false,
   });
 }
@@ -486,8 +496,26 @@ export function useCreateExamRule() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: (rule: Omit<ExamRule, 'id' | 'created_at' | 'updated_at'>) =>
-      fetchWithAuth('/data/exam_rules', { method: 'POST', body: JSON.stringify(rule) }),
+    mutationFn: (rule: Omit<ExamRule, 'id' | 'created_at' | 'updated_at'>) => {
+      // Create a clean payload with only existing DB columns
+      const payload = {
+        exam_id: rule.exam_id,
+        exam_schedule_id: rule.exam_schedule_id,
+        duration_minutes: rule.duration_minutes,
+        max_attempts: rule.max_attempts,
+        negative_marking_value: rule.negative_marking_value,
+        passing_percentage: rule.passing_percentage,
+        shuffle_questions: rule.shuffle_questions,
+        shuffle_options: rule.shuffle_options,
+        show_results_immediately: rule.show_results_immediately,
+        allow_review: rule.allow_review,
+        proctoring_enabled: rule.proctoring_enabled,
+        // Aliases for legacy DB support
+        negative_marks_per_question: rule.negative_marking_value,
+        passing_marks: rule.passing_percentage
+      };
+      return fetchWithAuth('/data/exam_rules', { method: 'POST', body: JSON.stringify(payload) });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exam-rules'] });
       toast({ title: 'Exam rule created successfully' });

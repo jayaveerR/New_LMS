@@ -52,8 +52,16 @@ export function useStudentStats() {
 export function useStudentExams() {
     const { user } = useAuth();
     return useQuery({
-        queryKey: ['student-exams'],
-        queryFn: () => fetchWithAuth('/data/live_exams'),
+        queryKey: ['student-exams', user?.id],
+        queryFn: async () => {
+            const accessible = await fetchWithAuth('/student/accessible-exams');
+            return (accessible as any[])
+                .filter((a) => a.exam_id)
+                .map((a) => ({
+                    ...a.exam_schedules,
+                    id: a.exam_id // Ensure ID consistency
+                }));
+        },
         enabled: !!user?.id,
     });
 }
@@ -61,8 +69,16 @@ export function useStudentExams() {
 export function useStudentMockPapers() {
     const { user } = useAuth();
     return useQuery({
-        queryKey: ['student-mock-papers'],
-        queryFn: () => fetchWithAuth('/data/mock_papers'),
+        queryKey: ['student-mock-papers', user?.id],
+        queryFn: async () => {
+            const accessible = await fetchWithAuth('/student/accessible-exams');
+            return (accessible as any[])
+                .filter((a) => a.mock_paper_id)
+                .map((a) => ({
+                    ...a.mock_papers,
+                    id: a.mock_paper_id
+                }));
+        },
         enabled: !!user?.id,
     });
 }
