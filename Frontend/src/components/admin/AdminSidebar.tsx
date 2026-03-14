@@ -15,19 +15,13 @@ import {
 import {
   LayoutDashboard,
   Users,
-  UserCog,
   Shield,
   BookOpen,
-  BarChart3,
   Settings,
-  HelpCircle,
   LogOut,
-  FileText,
-  Activity,
-  Database,
-  Lock,
-  Box,
-  ChevronRight,
+  FileQuestion,
+  GraduationCap,
+  ClipboardList,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,21 +29,14 @@ import { Button } from "@/components/ui/button";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
-  { title: "User Management", url: "/admin/users", icon: Users },
-  { title: "Role Distribution", url: "/admin/roles", icon: UserCog },
-  { title: "Course Registry", url: "/admin/courses", icon: BookOpen },
+  { title: "Users Management", url: "/admin/users", icon: Users },
+  { title: "Instructor Courses", url: "/admin/instructor-courses", icon: ClipboardList },
+  { title: "All Courses", url: "/admin/all-courses", icon: GraduationCap },
+  { title: "Question Bank", url: "/admin/questions", icon: FileQuestion },
 ];
 
 const securityNavItems = [
-  { title: "Security Matrix", url: "/admin/security", icon: Shield },
-  { title: "System Logs", url: "/admin/logs", icon: FileText },
-  { title: "Access Control", url: "/admin/access", icon: Lock },
-];
-
-const analyticNavItems = [
-  { title: "Platform Data", url: "/admin/analytics", icon: BarChart3 },
-  { title: "System Health", url: "/admin/health", icon: Activity },
-  { title: "Database Nodes", url: "/admin/database", icon: Database },
+  { title: "Security Center", url: "/admin/security", icon: Shield },
 ];
 
 export function AdminSidebar() {
@@ -84,24 +71,26 @@ export function AdminSidebar() {
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 group-data-[collapsible=icon]:px-2 py-6 space-y-8 custom-scrollbar">
+      <SidebarContent className="px-3 group-data-[collapsible=icon]:px-2 py-6 space-y-6 custom-scrollbar">
         {/* Main Section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Central Hub</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+            Management
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
                     isActive={isActive(item.url)}
-                    className="h-11 px-4 rounded-lg transition-all duration-200 group relative data-[active=true]:bg-primary/5 data-[active=true]:text-primary"
+                    className="h-11 px-4 rounded-lg transition-all duration-200 group relative data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
                   >
                     <Link to={item.url} className="flex items-center gap-3">
                       <item.icon
-                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
+                        className={`h-5 w-5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
                       />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && <span className="font-medium">{item.title}</span>}
                       {isActive(item.url) && !collapsed && (
                         <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
                       )}
@@ -113,57 +102,34 @@ export function AdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Analytics Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Operations</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {analyticNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-primary/5 data-[active=true]:text-primary"
-                  >
-                    <Link to={item.url} className="flex items-center gap-3">
-                      <item.icon
-                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
-                      />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
         {/* Security Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">
-            Security
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {securityNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-primary/5 data-[active=true]:text-primary"
-                  >
-                    <Link to={item.url} className="flex items-center gap-3">
-                      <item.icon
-                        className={`h-4.5 w-4.5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
-                      />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {securityNavItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+              Security
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {securityNavItems.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      className="h-11 px-4 rounded-lg transition-all duration-200 group data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
+                    >
+                      <Link to={item.url} className="flex items-center gap-3">
+                        <item.icon
+                          className={`h-5 w-5 transition-colors ${isActive(item.url) ? "text-primary" : "text-slate-500 group-hover:text-slate-700"}`}
+                        />
+                        {!collapsed && <span className="font-medium">{item.title}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 group-data-[collapsible=icon]:p-2 border-t border-slate-50 bg-slate-50/50">

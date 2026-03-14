@@ -29,11 +29,12 @@ const lightBgPages = [
   "/admin",
   "/about",
   "/assignments",
+  "/courses",
 ];
 
 const navLinks = [
   { name: "Home", href: "/" },
-  { name: "Courses", href: "/#courses" },
+  { name: "Courses", href: "/courses" },
   { name: "Learning Paths", href: "/learning-paths" },
   { name: "Assignments", href: "/assignments" },
   { name: "About", href: "/about" },

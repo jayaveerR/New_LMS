@@ -28,6 +28,7 @@ export interface Course {
   description: string | null;
   instructor_id: string | null;
   instructor_name: string | null;
+  instructor_email?: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'disabled' | 'published' | 'draft';
   category: string | null;
   thumbnail_url: string | null;
@@ -64,6 +65,7 @@ export interface AdminStats {
   totalUsers: number;
   activeCourses: number;
   pendingCourses: number;
+  pendingEnrollments: number; // Added field
   securityEvents: number;
   highPriorityEvents: number;
   roleCounts: Record<string, number>;
@@ -76,12 +78,14 @@ export function useAdminData() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [enrollments, setEnrollments] = useState<any[]>([]); // Added state
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     activeCourses: 0,
     pendingCourses: 0,
+    pendingEnrollments: 0, // Added field
     securityEvents: 0,
     highPriorityEvents: 0,
     roleCounts: {},
@@ -92,12 +96,13 @@ export function useAdminData() {
     setLoading(true);
     try {
       // Fetch in parallel
-      const [profilesData, rolesData, coursesData, eventsData, logsData] = await Promise.all([
+      const [profilesData, rolesData, coursesData, eventsData, logsData, enrollmentsData] = await Promise.all([
         fetchWithAuth('/data/profiles?sort=created_at&order=desc'),
         fetchWithAuth('/data/user_roles'),
         fetchWithAuth('/data/courses?sort=created_at&order=desc'),
         fetchWithAuth('/data/security_events?sort=created_at&order=desc&limit=50'),
         fetchWithAuth('/data/system_logs?sort=created_at&order=desc&limit=100'),
+        fetchWithAuth('/courses/enrollments'), // Added endpoint
       ]);
 
       if (profilesData && rolesData) {
@@ -127,6 +132,11 @@ export function useAdminData() {
         const pending = (coursesData as Course[]).filter((c) => c.status?.toLowerCase() === 'pending').length;
         const approved = (coursesData as Course[]).filter((c) => c.status?.toLowerCase() === 'approved' || c.status?.toLowerCase() === 'published').length;
         setStats((prev) => ({ ...prev, pendingCourses: pending, activeCourses: approved }));
+      }
+      if (enrollmentsData) {
+        setEnrollments(enrollmentsData as any[]);
+        const pendingEnrollmentsCount = (enrollmentsData as any[]).filter(e => e.status === 'pending').length;
+        setStats(prev => ({ ...prev, pendingEnrollments: pendingEnrollmentsCount }));
       }
       if (eventsData) {
         setSecurityEvents(eventsData as SecurityEvent[]);
@@ -162,6 +172,54 @@ export function useAdminData() {
     const interval = setInterval(fetchAllData, 30000);
     return () => clearInterval(interval);
   }, [fetchAllData]);
+
+  const approveCourse = async (courseId: string) => {
+    try {
+      await fetchWithAuth('/admin/approve-course', {
+        method: 'PUT',
+        body: JSON.stringify({ courseId, status: 'approved' })
+      });
+      
+      toast({ title: 'Success', description: 'Course approved and published' });
+      fetchAllData();
+      return true;
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to approve course', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const rejectCourse = async (courseId: string, reason: string) => {
+    try {
+      await fetchWithAuth('/admin/approve-course', {
+        method: 'PUT',
+        body: JSON.stringify({ courseId, status: 'rejected', rejectionReason: reason })
+      });
+
+      toast({ title: 'Success', description: 'Course rejected' });
+      fetchAllData();
+      return true;
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to reject course', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const updateCourseStatus = async (courseId: string, status: string) => {
+    try {
+      await fetchWithAuth('/admin/approve-course', {
+        method: 'PUT',
+        body: JSON.stringify({ courseId, status })
+      });
+
+      toast({ title: 'Success', description: `Course status updated to ${status}` });
+      fetchAllData();
+      return true;
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update course status', variant: 'destructive' });
+      return false;
+    }
+  };
 
   // Admin actions
   const updateUserStatus = async (userId: string, status: 'approved' | 'rejected' | 'suspended' | 'active') => {
@@ -235,47 +293,22 @@ export function useAdminData() {
     }
   };
 
-  const approveCourse = async (courseId: string) => {
+  const updateEnrollmentStatus = async (enrollmentId: string, status: 'active' | 'rejected') => {
     try {
-      await fetchWithAuth('/admin/approve-course', {
+      await fetchWithAuth('/courses/enrollment-status', {
         method: 'PUT',
-        body: JSON.stringify({ courseId, status: 'published' })
+        body: JSON.stringify({ enrollmentId, status })
       });
 
-      // Optimistically update local state immediately
-      setCourses(prev => prev.map(c =>
-        c.id === courseId ? { ...c, status: 'published', reviewed_at: new Date().toISOString() } : c
-      ));
-
-      toast({ title: '✅ Course Approved', description: 'Course is now published and visible to students.' });
-
-      // Refresh from server after a short delay to sync real DB state
-      setTimeout(fetchAllData, 1500);
-      return true;
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to approve course', variant: 'destructive' });
-      return false;
-    }
-  };
-
-  const rejectCourse = async (courseId: string, reason: string) => {
-    try {
-      await fetchWithAuth('/admin/approve-course', {
-        method: 'PUT',
-        body: JSON.stringify({ courseId, status: 'rejected', rejectionReason: reason })
+      toast({ 
+        title: status === 'active' ? '✅ Enrollment Approved' : '❌ Enrollment Rejected', 
+        description: `Student enrollment has been ${status === 'active' ? 'approved' : 'rejected'}.` 
       });
-
-      // Optimistically update local state
-      setCourses(prev => prev.map(c =>
-        c.id === courseId ? { ...c, status: 'rejected', rejection_reason: reason, reviewed_at: new Date().toISOString() } : c
-      ));
-
-      toast({ title: 'Course Rejected', description: 'Course has been rejected.' });
-
-      setTimeout(fetchAllData, 1500);
+      
+      fetchAllData();
       return true;
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to reject course', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to update enrollment status', variant: 'destructive' });
       return false;
     }
   };
@@ -317,6 +350,7 @@ export function useAdminData() {
     loading,
     profiles: getUsersWithRoles(),
     courses,
+    enrollments,
     securityEvents,
     systemLogs,
     stats,
@@ -324,9 +358,11 @@ export function useAdminData() {
     refresh: fetchAllData,
     updateUserStatus,
     updateUserRole,
-    approveCourse,
-    rejectCourse,
+    updateEnrollmentStatus,
     resolveSecurityEvent,
     sendApprovalEmail,
+    approveCourse,
+    rejectCourse,
+    updateCourseStatus,
   };
 }

@@ -37,6 +37,8 @@ import {
   AlertCircle,
   Send,
   CheckCircle,
+  Copy,
+  Eye,
 } from "lucide-react";
 import type { Profile } from "@/hooks/useAdminData";
 
@@ -68,7 +70,20 @@ export function UserManagement({
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [newRole, setNewRole] = useState<string>("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(text);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleViewProfile = (user: Profile) => {
+    setSelectedUser(user);
+    setShowProfileDialog(true);
+  };
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -280,6 +295,16 @@ export function UserManagement({
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 hover:bg-primary/10"
+                      title="View Profile"
+                      onClick={() => handleViewProfile(user)}
+                    >
+                      <Eye className="h-4 w-4 text-primary" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 hover:bg-slate-200"
                       title="Change Role"
                       onClick={() => {
@@ -371,7 +396,7 @@ export function UserManagement({
 
       {/* Role Change Dialog */}
       <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
-        <DialogContent className="max-w-md overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-2xl rounded-2xl p-0">
+        <DialogContent aria-describedby="role-dialog-description" className="max-w-md overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-2xl rounded-2xl p-0">
           <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
             <DialogTitle className="flex items-center gap-3 text-lg font-semibold text-slate-800">
               <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center shadow-inner">
@@ -379,7 +404,7 @@ export function UserManagement({
               </div>
               Modify User Role
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-600 font-medium ml-13">
+            <DialogDescription id="role-dialog-description" className="text-sm text-slate-600 font-medium ml-13">
               Change the system permissions for{" "}
               <span className="text-slate-700 font-semibold">
                 {selectedUser?.full_name || selectedUser?.email}
@@ -444,7 +469,7 @@ export function UserManagement({
 
       {/* Approval Confirmation Dialog */}
       <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
-        <DialogContent className="max-w-md sm:max-w-lg overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-2xl rounded-2xl p-0">
+        <DialogContent aria-describedby="approval-dialog-description" className="max-w-md sm:max-w-lg overflow-hidden bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-2xl rounded-2xl p-0">
           <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
             <DialogTitle className="flex items-center gap-3 text-lg font-semibold text-slate-800">
               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shadow-inner">
@@ -452,7 +477,7 @@ export function UserManagement({
               </div>
               User Review & Approval
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-600 font-medium ml-13">
+            <DialogDescription id="approval-dialog-description" className="text-sm text-slate-600 font-medium ml-13">
               Review credential details before granting platform access.
             </DialogDescription>
           </DialogHeader>
@@ -490,6 +515,28 @@ export function UserManagement({
                 >
                   {selectedUser?.email}
                 </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">
+                  UUID
+                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-mono text-slate-600 truncate">
+                    {selectedUser?.id}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 shrink-0"
+                    onClick={() => selectedUser?.id && copyToClipboard(selectedUser.id)}
+                  >
+                    {copiedId === selectedUser?.id ? (
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-slate-400" />
+                    )}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">
@@ -564,6 +611,103 @@ export function UserManagement({
               </Button>
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Profile Dialog */}
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent aria-describedby="profile-dialog-description" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" />
+              User Profile
+            </DialogTitle>
+            <DialogDescription id="profile-dialog-description" className="sr-only">
+              View user profile details including name, email, UUID, and status.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              {/* Avatar and Name */}
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-primary">
+                    {selectedUser.full_name?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    {selectedUser.full_name || 'Unknown'}
+                  </h3>
+                  <Badge variant="secondary" className="mt-1">
+                    {selectedUser.role || 'student'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="grid gap-3">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm font-medium">{selectedUser.email || 'N/A'}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground">UUID</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono">{selectedUser.id?.substring(0, 8)}...</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => selectedUser.id && copyToClipboard(selectedUser.id)}
+                    >
+                      {copiedId === selectedUser.id ? (
+                        <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant={selectedUser.status === 'active' ? 'default' : 'destructive'}>
+                    {selectedUser.status || 'active'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground">Approval</span>
+                  <Badge variant={selectedUser.approval_status === 'approved' ? 'default' : 'secondary'}>
+                    {selectedUser.approval_status || 'pending'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground">Joined</span>
+                  <span className="text-sm font-medium">
+                    {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    setNewRole(selectedUser.role || 'student');
+                    setShowProfileDialog(false);
+                    setShowRoleDialog(true);
+                  }}
+                >
+                  <UserCog className="h-4 w-4 mr-2" />
+                  Change Role
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

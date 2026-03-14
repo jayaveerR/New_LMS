@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.courses (
   description text,
   instructor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   instructor_name text,
-  status text DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disabled')),
+  status text DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disabled', 'published', 'draft')),
   category text,
   thumbnail_url text,
   submitted_at timestamptz DEFAULT now(),

@@ -8,8 +8,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function checkMore() {
     console.log('Checking deeper for URL:', supabaseUrl);
     
-    const { data: courses } = await supabase.from('courses').select('id, title, instructor_id');
-    console.log('Found courses:', courses?.length || 0);
+const { data: courses } = await supabase.from('courses').select('id, title, instructor_id').limit(5);
+console.log('Courses sample:', JSON.stringify(courses, null, 2));
 
     const tables = ['profiles', 'user_roles', 'course_enrollments', 'course_videos', 'course_modules', 'course_resources'];
     

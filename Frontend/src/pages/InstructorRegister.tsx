@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -138,7 +139,7 @@ export default function InstructorRegister() {
         formData.append('resume', resumeFile);
       }
 
-      const res = await fetch('https://new-lms-m5l5.onrender.com/api/instructor/register', {
+      const res = await fetch(`${API_URL}/instructor/register`, {
         method: 'POST',
         body: formData
       });

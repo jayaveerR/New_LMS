@@ -64,7 +64,7 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {courses.map((course: StudentCourse, index: number) => {
                 const thumbnailUrl = course.thumbnail_url
-                    ? (course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`)
+                    ? (course.thumbnail_url.startsWith('http') ? course.thumbnail_url : (course.thumbnail_url.includes('s3') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`))
                     : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop';
 
                 return (
@@ -91,6 +91,19 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
                                         <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-md">
                                             {course.category || 'Course'}
                                         </Badge>
+                                        {type === 'enrolled' && course.enrollmentStatus && (
+                                            <Badge 
+                                                variant="secondary" 
+                                                className={`border-none backdrop-blur-md gap-1 ${
+                                                    course.enrollmentStatus === 'active' ? 'bg-green-500/80 hover:bg-green-500 text-white' :
+                                                    course.enrollmentStatus === 'pending' ? 'bg-amber-500/80 hover:bg-amber-500 text-white' :
+                                                    'bg-red-500/80 hover:bg-red-500 text-white'
+                                                }`}
+                                            >
+                                                {course.enrollmentStatus === 'active' ? 'Approved' : 
+                                                 course.enrollmentStatus === 'pending' ? 'Pending' : 'Rejected'}
+                                            </Badge>
+                                        )}
                                         {course.status === 'published' && type === 'available' && (
                                             <Badge variant="secondary" className="bg-green-500/80 hover:bg-green-500 text-white border-none backdrop-blur-md gap-1">
                                                 <Sparkles className="h-3 w-3" /> New
@@ -130,11 +143,29 @@ export function CourseList({ type = 'enrolled', onSelectCourse }: CourseListProp
 
                                 {type === 'enrolled' ? (
                                     <div className="space-y-2 mt-auto p-4 bg-muted/30 rounded-2xl border border-border/50 transition-colors group-hover:bg-primary/5 group-hover:border-primary/20">
-                                        <div className="flex justify-between text-sm font-bold">
-                                            <span className="text-foreground">Course Progress</span>
-                                            <span className="text-primary">{course.progress || 0}%</span>
-                                        </div>
-                                        <Progress value={course.progress || 0} className="h-2.5 bg-muted-foreground/20 [&>div]:bg-primary" />
+                                        {course.enrollmentStatus === 'pending' ? (
+                                            <div className="text-center py-2">
+                                                <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 gap-1">
+                                                    Pending Approval
+                                                </Badge>
+                                                <p className="text-xs text-muted-foreground mt-2">Your enrollment is waiting for admin approval</p>
+                                            </div>
+                                        ) : course.enrollmentStatus === 'rejected' ? (
+                                            <div className="text-center py-2">
+                                                <Badge variant="destructive" className="gap-1">
+                                                    Enrollment Rejected
+                                                </Badge>
+                                                <p className="text-xs text-muted-foreground mt-2">Please contact support for more information</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between text-sm font-bold">
+                                                    <span className="text-foreground">Course Progress</span>
+                                                    <span className="text-primary">{course.progress || 0}%</span>
+                                                </div>
+                                                <Progress value={course.progress || 0} className="h-2.5 bg-muted-foreground/20 [&>div]:bg-primary" />
+                                            </>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="mt-auto space-y-3">

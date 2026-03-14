@@ -87,7 +87,7 @@ export function StudentCourseViewer({ course, isEnrolled = true, onBack }: Stude
                                 controlsList="nodownload"
                                 className="w-full h-full"
                             >
-                                <source src={selectedVideo.video_url.startsWith('http') ? selectedVideo.video_url : `/s3/public/${selectedVideo.video_url}`} type="video/mp4" />
+                                <source src={selectedVideo.video_url.startsWith('http') ? selectedVideo.video_url : (selectedVideo.video_url.includes('s3') ? selectedVideo.video_url : `/s3/public/${selectedVideo.video_url}`)} type="video/mp4" />
                                 Your browser does not support native video streaming.
                             </video>
                         ) : (

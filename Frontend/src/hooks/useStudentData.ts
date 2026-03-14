@@ -173,6 +173,8 @@ export interface Enrollment {
 
 export interface StudentCourse extends Course {
     progress: number;
+    enrollmentStatus: string;
+    enrollmentId: string;
 }
 
 export interface Announcement {
@@ -241,17 +243,15 @@ export function useEnrolledCourses() {
         queryKey: ['enrolled-courses-details', user?.id],
         queryFn: async () => {
             try {
-                const url = `/data/course_enrollments?user_id=eq.${user?.id}`;
+                // Show both active and pending enrollments in the student dashboard
+                const url = `/data/course_enrollments?user_id=eq.${user?.id}&status=in.(active,pending)`;
                 const enrollments: Enrollment[] = await fetchWithAuth(url);
-                console.log(`[StudentData] Found ${enrollments.length} enrollments for user ${user?.id}`);
-
                 if (!enrollments.length) return [];
 
                 const courseIds = enrollments.map((e) => e.course_id);
                 // Efficiency: fetch only the courses we are enrolled in using the new 'in' operator
                 const courseUrl = `/data/courses?id=in.(${courseIds.join(',')})`;
                 const courses: Course[] = await fetchWithAuth(courseUrl);
-                console.log(`[StudentData] Successfully fetched ${courses.length} / ${courseIds.length} course details`);
 
                 return courses.map((c) => {
                     const enrollment = enrollments.find((e) => e.course_id === c.id);
@@ -264,7 +264,9 @@ export function useEnrolledCourses() {
                         thumbnail_url: c.thumbnail_url,
                         instructor_id: c.instructor_id,
                         created_at: c.created_at,
-                        progress: enrollment?.progress_percentage || 0
+                        progress: enrollment?.progress_percentage || 0,
+                        enrollmentStatus: enrollment?.status || 'pending',
+                        enrollmentId: enrollment?.id || ''
                     } as StudentCourse;
                 });
             } catch (error) {
@@ -342,7 +344,7 @@ export function useEnrollCourse() {
                 body: JSON.stringify({
                     user_id: user.id,
                     course_id: courseId,
-                    status: 'active',
+                    status: 'pending',
                     progress_percentage: 0
                 })
             });

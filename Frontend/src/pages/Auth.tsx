@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +11,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/logo.png';
-import { Mail, Lock, User, Eye, EyeOff, Check, X } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -20,10 +20,17 @@ const loginSchema = z.object({
   password: z.string().min(1, { message: 'Password is required' }),
 });
 
-const registerSchema = z.object({
+const emailVerifySchema = z.object({
   fullName: z.string().min(2, { message: 'Name must be at least 2 characters' }).max(50, { message: 'Name must be less than 50 characters' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
-  phone: z.string().optional(),
+});
+
+const otpSchema = z.object({
+  otp: z.string().length(6, { message: 'Please enter 6-digit OTP' }),
+});
+
+const detailsSchema = z.object({
+  phone: z.string().min(10, { message: 'Mobile number must be 10 digits' }).max(10, { message: 'Mobile number must be 10 digits' }),
   countryCode: z.string().default('+91'),
   password: z
     .string()
@@ -41,7 +48,11 @@ const registerSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-type RegisterFormData = z.infer<typeof registerSchema>;
+type EmailVerifyFormData = z.infer<typeof emailVerifySchema>;
+type OtpFormData = z.infer<typeof otpSchema>;
+type DetailsFormData = z.infer<typeof detailsSchema>;
+
+type RegistrationStep = 'email' | 'otp' | 'details';
 
 // Password strength checker
 const getPasswordStrength = (password: string) => {
@@ -64,9 +75,14 @@ export default function Auth() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showLoginConfirmPassword, setShowLoginConfirmPassword] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState<RegistrationStep>('email');
+  const [tempUserData, setTempUserData] = useState<{ fullName: string; email: string } | null>(null);
+  const [otpResendTimer, setOtpResendTimer] = useState(0);
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Redirect if already logged in
   const { userRole } = useAuth();
@@ -84,13 +100,207 @@ export default function Auth() {
     defaultValues: { email: '', phone: '', countryCode: '+91', password: '' },
   });
 
-  const registerForm = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { fullName: '', email: '', phone: '', countryCode: '+91', password: '', confirmPassword: '', agreeToTerms: false },
+  const emailVerifyForm = useForm<EmailVerifyFormData>({
+    resolver: zodResolver(emailVerifySchema),
+    defaultValues: { fullName: '', email: '' },
   });
 
-  const watchPassword = registerForm.watch('password');
+  const otpForm = useForm<OtpFormData>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { otp: '' },
+  });
+
+  const detailsForm = useForm<DetailsFormData>({
+    resolver: zodResolver(detailsSchema),
+    defaultValues: { phone: '', countryCode: '+91', password: '', confirmPassword: '', agreeToTerms: false },
+  });
+
+  const watchPassword = detailsForm.watch('password');
   const passwordStrength = useMemo(() => getPasswordStrength(watchPassword || ''), [watchPassword]);
+
+  useEffect(() => {
+    if (otpResendTimer > 0) {
+      const timer = setTimeout(() => setOtpResendTimer(otpResendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpResendTimer]);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  const handleSendOtp = async (data: EmailVerifyFormData) => {
+    setLoading(true);
+    setTempUserData({ fullName: data.fullName, email: data.email });
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          full_name: data.fullName,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setRegistrationStep('otp');
+        setOtpResendTimer(120);
+        toast({
+          title: 'OTP Sent',
+          description: 'Please check your email for the 6-digit OTP.',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to send OTP. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send OTP. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (data: OtpFormData) => {
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: tempUserData?.email,
+          otp: data.otp,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setRegistrationStep('details');
+        toast({
+          title: 'Verified',
+          description: 'Email verified successfully. Please complete your registration.',
+        });
+      } else {
+        otpForm.setError('otp', { message: result.error || 'Invalid OTP. Please try again.' });
+        toast({
+          title: 'Verification Failed',
+          description: result.error || 'Invalid OTP. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to verify OTP. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!tempUserData || otpResendTimer > 0) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: tempUserData.email,
+          full_name: tempUserData.fullName,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setOtpResendTimer(120);
+        toast({
+          title: 'OTP Resent',
+          description: 'A new OTP has been sent to your email.',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to resend OTP.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to resend OTP.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFinalRegister = async (data: DetailsFormData) => {
+    if (!tempUserData) return;
+    setLoading(true);
+    const fullPhone = `${data.countryCode}${data.phone}`;
+    const { error } = await signUp(tempUserData.email, data.password, tempUserData.fullName);
+    
+    if (error) {
+      setLoading(false);
+      toast({
+        title: 'Registration Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        await fetch(`${API_URL}/user/profile`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ phone: fullPhone }),
+        });
+      }
+      
+      toast({
+        title: 'Account Created!',
+        description: 'Welcome to AOTMS LMS!',
+      });
+      navigate('/pending-approval');
+    }
+  };
+
+  const handleOtpInputChange = (index: number, value: string, onChange: (value: string) => void) => {
+    const newValue = value.replace(/[^0-9]/g, '');
+    if (newValue.length <= 1) {
+      const otpArray = otpForm.getValues('otp').split('');
+      otpArray[index] = newValue;
+      const newOtp = otpArray.join('').slice(0, 6);
+      onChange(newOtp);
+      
+      if (newValue && index < 5) {
+        otpInputRefs.current[index + 1]?.focus();
+      }
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpForm.getValues('otp')[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     toast({
@@ -118,7 +328,7 @@ export default function Auth() {
 
       // Fetch fresh role for redirection
       const token = localStorage.getItem('access_token');
-      const roleRes = await fetch('https://new-lms-m5l5.onrender.com/api/user/role', {
+      const roleRes = await fetch(`${API_URL}/user/role`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -145,30 +355,14 @@ export default function Auth() {
     }
   };
 
-  const handleRegister = async (data: RegisterFormData) => {
-    setLoading(true);
-    const fullPhone = data.phone ? `${data.countryCode}${data.phone}` : undefined;
-    const { error } = await signUp(data.email, data.password, data.fullName);
-    setLoading(false);
-    if (error) {
-      toast({
-        title: 'Registration Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Account Created!',
-        description: 'Welcome to AOTMS LMS!',
-      });
-      navigate('/pending-approval');
-    }
-  };
-
   const toggleMode = () => {
     setIsLogin(!isLogin);
     loginForm.reset();
-    registerForm.reset();
+    emailVerifyForm.reset();
+    otpForm.reset();
+    detailsForm.reset();
+    setRegistrationStep('email');
+    setTempUserData(null);
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
@@ -213,12 +407,16 @@ export default function Auth() {
           {/* Header */}
           <div className="text-center mb-6">
             <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-1">
-              {isLogin ? 'Welcome back' : 'Create an account'}
+              {isLogin ? 'Welcome back' : registrationStep === 'email' ? 'Create an account' : registrationStep === 'otp' ? 'Verify Email' : 'Complete Registration'}
             </h2>
             <p className="text-muted-foreground text-sm">
               {isLogin
                 ? 'Sign in to continue your learning journey.'
-                : 'Access your courses, track progress, and grow.'}
+                : registrationStep === 'email'
+                ? 'Enter your details to get started'
+                : registrationStep === 'otp'
+                ? 'Enter the OTP sent to your email'
+                : 'Fill in your account details'}
             </p>
           </div>
 
@@ -309,193 +507,340 @@ export default function Auth() {
               </form>
             </Form>
           ) : (
-            /* Register Form */
-            <Form {...registerForm}>
-              <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-3">
-                {/* Row 1: Full Name & Email */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <FormField
-                    control={registerForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor="register-name" className="text-sm">Full Name</FormLabel>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                          <FormControl>
-                            <Input
-                              id="register-name"
-                              type="text"
-                              placeholder="John Doe"
-                              className="pl-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
-                              autoComplete="name"
-                              {...field}
-                            />
-                          </FormControl>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor="register-email" className="text-sm">Email</FormLabel>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                          <FormControl>
-                            <Input
-                              id="register-email"
-                              type="email"
-                              placeholder="student@example.com"
-                              className="pl-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
-                              autoComplete="email"
-                              {...field}
-                            />
-                          </FormControl>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Phone Number with Country Code */}
-                <FormField
-                  control={registerForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Phone Number <span className="text-muted-foreground text-xs">(Optional)</span></FormLabel>
-                      <FormControl>
-                        <PhoneInput
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          countryCode={registerForm.watch('countryCode')}
-                          onCountryChange={(code) => registerForm.setValue('countryCode', code)}
-                          placeholder="9876543210"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Row 2: Password & Confirm Password */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor="register-password" className="text-sm">Password</FormLabel>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                          <FormControl>
-                            <Input
-                              id="register-password"
-                              type={showRegisterPassword ? "text" : "password"}
-                              placeholder="••••••••"
-                              className="pl-10 pr-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
-                              autoComplete="new-password"
-                              {...field}
-                            />
-                          </FormControl>
-                          <button
-                            type="button"
-                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors z-10"
-                            tabIndex={-1}
-                          >
-                            {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor="register-confirm-password" className="text-sm">Confirm Password</FormLabel>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                          <FormControl>
-                            <Input
-                              id="register-confirm-password"
-                              type={showConfirmPassword ? "text" : "password"}
-                              placeholder="••••••••"
-                              className="pl-10 pr-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
-                              autoComplete="new-password"
-                              {...field}
-                            />
-                          </FormControl>
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors z-10"
-                            tabIndex={-1}
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Password Strength Indicator */}
-                {watchPassword && watchPassword.length > 0 && (
-                  <div className="p-2.5 bg-muted/50 rounded-lg grid grid-cols-2 gap-1">
-                    <PasswordRequirement met={passwordStrength.checks.length} text="8+ characters" />
-                    <PasswordRequirement met={passwordStrength.checks.uppercase} text="Uppercase" />
-                    <PasswordRequirement met={passwordStrength.checks.lowercase} text="Lowercase" />
-                    <PasswordRequirement met={passwordStrength.checks.number} text="Number" />
+            /* Multi-Step Registration Form */
+            <div className="space-y-4">
+              {/* Step Indicator */}
+              {!isLogin && (
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className={`flex items-center gap-1.5 ${registrationStep === 'email' ? 'text-primary' : registrationStep !== 'email' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${registrationStep === 'email' ? 'bg-primary text-primary-foreground' : registrationStep !== 'email' ? 'bg-green-600 text-white' : 'bg-muted'}`}>
+                      {registrationStep !== 'email' ? <Check className="h-3 w-3" /> : '1'}
+                    </div>
+                    <span className="text-xs">Email</span>
                   </div>
-                )}
+                  <div className="w-8 h-px bg-border" />
+                  <div className={`flex items-center gap-1.5 ${registrationStep === 'otp' ? 'text-primary' : registrationStep === 'details' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${registrationStep === 'otp' ? 'bg-primary text-primary-foreground' : registrationStep === 'details' ? 'bg-green-600 text-white' : 'bg-muted'}`}>
+                      {registrationStep === 'details' ? <Check className="h-3 w-3" /> : '2'}
+                    </div>
+                    <span className="text-xs">Verify</span>
+                  </div>
+                  <div className="w-8 h-px bg-border" />
+                  <div className={`flex items-center gap-1.5 ${registrationStep === 'details' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${registrationStep === 'details' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                      3
+                    </div>
+                    <span className="text-xs">Details</span>
+                  </div>
+                </div>
+              )}
 
-                {/* Terms Checkbox */}
-                <FormField
-                  control={registerForm.control}
-                  name="agreeToTerms"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 py-1">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="mt-0.5"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="text-xs font-normal text-muted-foreground cursor-pointer">
-                          I agree to the{' '}
-                          <a href="/terms" className="text-accent hover:underline">Terms</a>
-                          {' '}&{' '}
-                          <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a>
-                        </FormLabel>
-                        <FormMessage />
+              {/* Step 1: Email Verification */}
+              {registrationStep === 'email' && (
+                <Form {...emailVerifyForm}>
+                  <form onSubmit={emailVerifyForm.handleSubmit(handleSendOtp)} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-semibold">Get Started</h3>
+                      <p className="text-sm text-muted-foreground">Enter your name and email to begin</p>
+                    </div>
+                    
+                    <FormField
+                      control={emailVerifyForm.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="register-name" className="text-sm">Full Name</FormLabel>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                            <FormControl>
+                              <Input
+                                id="register-name"
+                                type="text"
+                                placeholder="John Doe"
+                                className="pl-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
+                                autoComplete="name"
+                                {...field}
+                              />
+                            </FormControl>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={emailVerifyForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="register-email" className="text-sm">Email Address</FormLabel>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                            <FormControl>
+                              <Input
+                                id="register-email"
+                                type="email"
+                                placeholder="student@example.com"
+                                className="pl-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
+                                autoComplete="email"
+                                {...field}
+                              />
+                            </FormControl>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-11 bg-foreground text-background hover:bg-foreground/90 font-medium text-sm rounded-lg flex items-center justify-center gap-2"
+                    >
+                      {loading ? 'Sending OTP...' : 'Verify Email'}
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </form>
+                </Form>
+              )}
+
+              {/* Step 2: OTP Verification */}
+              {registrationStep === 'otp' && (
+                <Form {...otpForm}>
+                  <form onSubmit={otpForm.handleSubmit(handleVerifyOtp)} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <ShieldCheck className="h-6 w-6 text-primary" />
                       </div>
-                    </FormItem>
-                  )}
-                />
+                      <h3 className="text-lg font-semibold">Verify Your Email</h3>
+                      <p className="text-sm text-muted-foreground">
+                        We've sent a 6-digit OTP to<br />
+                        <span className="font-medium text-foreground">{tempUserData?.email}</span>
+                      </p>
+                    </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-11 bg-foreground text-background hover:bg-foreground/90 font-medium text-sm rounded-lg"
-                >
-                  {loading ? 'Creating account...' : 'Create account'}
-                </Button>
-              </form>
-            </Form>
+                    <div className="flex justify-center gap-2">
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <input
+                          key={index}
+                          ref={(el) => { otpInputRefs.current[index] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          className="w-12 h-12 text-center text-lg font-semibold bg-background border-2 border-input rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                          onChange={(e) => handleOtpInputChange(index, e.target.value, otpForm.setValue.bind(null, 'otp'))}
+                          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                          value={otpForm.getValues('otp')[index] || ''}
+                        />
+                      ))}
+                    </div>
+                    <FormField
+                      control={otpForm.control}
+                      name="otp"
+                      render={({ field }) => (
+                        <FormItem className="hidden">
+                          <FormControl>
+                            <Input type="hidden" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-11 bg-foreground text-background hover:bg-foreground/90 font-medium text-sm rounded-lg"
+                    >
+                      {loading ? 'Verifying...' : 'Verify OTP'}
+                    </Button>
+
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Didn't receive the code?{' '}
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={otpResendTimer > 0 || loading}
+                          className="text-primary hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {otpResendTimer > 0 ? `Resend in ${otpResendTimer}s` : 'Resend OTP'}
+                        </button>
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegistrationStep('email');
+                        otpForm.reset();
+                      }}
+                      className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      Back to email
+                    </button>
+                  </form>
+                </Form>
+              )}
+
+              {/* Step 3: Final Details */}
+              {registrationStep === 'details' && (
+                <Form {...detailsForm}>
+                  <form onSubmit={detailsForm.handleSubmit(handleFinalRegister)} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Check className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold">Email Verified!</h3>
+                      <p className="text-sm text-muted-foreground">Complete your account details</p>
+                    </div>
+
+                    <FormField
+                      control={detailsForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm">Mobile Number <span className="text-red-500">*</span></FormLabel>
+                          <FormControl>
+                            <Input
+                              type="tel"
+                              placeholder="9876543210"
+                              maxLength={10}
+                              className="h-11 bg-background text-foreground border-input"
+                              {...field}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                field.onChange(value);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={detailsForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="register-password" className="text-sm">Password</FormLabel>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                            <FormControl>
+                              <Input
+                                id="register-password"
+                                type={showRegisterPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                className="pl-10 pr-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
+                                autoComplete="new-password"
+                                {...field}
+                              />
+                            </FormControl>
+                            <button
+                              type="button"
+                              onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors z-10"
+                              tabIndex={-1}
+                            >
+                              {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={detailsForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="register-confirm-password" className="text-sm">Confirm Password</FormLabel>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                            <FormControl>
+                              <Input
+                                id="register-confirm-password"
+                                type={showConfirmPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                className="pl-10 pr-10 h-11 bg-background text-foreground border-input relative z-10 pointer-events-auto cursor-text"
+                                autoComplete="new-password"
+                                {...field}
+                              />
+                            </FormControl>
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors z-10"
+                              tabIndex={-1}
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {watchPassword && watchPassword.length > 0 && (
+                      <div className="p-2.5 bg-muted/50 rounded-lg grid grid-cols-2 gap-1">
+                        <PasswordRequirement met={passwordStrength.checks.length} text="8+ characters" />
+                        <PasswordRequirement met={passwordStrength.checks.uppercase} text="Uppercase" />
+                        <PasswordRequirement met={passwordStrength.checks.lowercase} text="Lowercase" />
+                        <PasswordRequirement met={passwordStrength.checks.number} text="Number" />
+                      </div>
+                    )}
+
+                    <FormField
+                      control={detailsForm.control}
+                      name="agreeToTerms"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 py-1">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="mt-0.5"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-xs font-normal text-muted-foreground cursor-pointer">
+                              I agree to the{' '}
+                              <a href="/terms" className="text-accent hover:underline">Terms</a>
+                              {' '}&{' '}
+                              <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a>
+                            </FormLabel>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-11 bg-foreground text-background hover:bg-foreground/90 font-medium text-sm rounded-lg"
+                    >
+                      {loading ? 'Creating account...' : 'Create Account'}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegistrationStep('otp');
+                        detailsForm.reset();
+                      }}
+                      className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      Back to OTP
+                    </button>
+                  </form>
+                </Form>
+              )}
+            </div>
           )}
 
           {/* Divider */}

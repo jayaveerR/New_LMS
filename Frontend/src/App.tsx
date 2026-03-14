@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import About from "./pages/About";
 import Assignments from "./pages/Assignments";
 import PendingApproval from "./pages/PendingApproval";
+import Courses from "./pages/Courses";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
 
@@ -32,6 +33,7 @@ const App = () => (
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/courses" element={<Courses />} />
             <Route path="/about" element={<About />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/auth" element={<Auth />} />

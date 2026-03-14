@@ -12,8 +12,23 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Clock
+  Clock,
+  MoreHorizontal,
+  FileEdit,
+  Send,
+  Archive,
+  User,
+  Mail,
+  Calendar,
+  Building,
+  GraduationCap
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { Course } from '@/hooks/useAdminData';
 
 interface CourseApprovalProps {
@@ -21,13 +36,15 @@ interface CourseApprovalProps {
   loading: boolean;
   onApprove: (courseId: string) => Promise<boolean>;
   onReject: (courseId: string, reason: string) => Promise<boolean>;
+  onUpdateStatus?: (courseId: string, status: string) => Promise<boolean>;
 }
 
 export function CourseApproval({
   courses,
   loading,
   onApprove,
-  onReject
+  onReject,
+  onUpdateStatus
 }: CourseApprovalProps) {
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'draft' | 'all'>('pending');
 
@@ -44,8 +61,14 @@ export function CourseApproval({
 
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  const handleViewCourse = (course: Course) => {
+    setSelectedCourse(course);
+    setShowViewDialog(true);
+  };
 
   const handleApprove = async (course: Course) => {
     setProcessing(true);
@@ -144,6 +167,14 @@ export function CourseApproval({
                 Drafts ({draftCourses.length})
               </Button>
               <Button
+                variant={filter === 'rejected' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setFilter('rejected')}
+                className="h-8 text-[11px] uppercase tracking-wider"
+              >
+                Rejected ({rejectedCourses.length})
+              </Button>
+              <Button
                 variant={filter === 'all' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setFilter('all')}
@@ -179,7 +210,7 @@ export function CourseApproval({
                 <div className="h-14 w-24 rounded-md bg-accent/10 flex items-center justify-center overflow-hidden border border-border">
                   {course.thumbnail_url ? (
                     <img
-                      src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`}
+                      src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : (course.thumbnail_url.includes('s3') ? course.thumbnail_url : `/s3/public/${course.thumbnail_url}`)}
                       className="w-full h-full object-cover"
                       alt=""
                     />
@@ -203,9 +234,62 @@ export function CourseApproval({
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" title="Preview">
+                  <Button variant="ghost" size="icon" title="View Details" onClick={() => handleViewCourse(course)}>
                     <Eye className="h-4 w-4" />
                   </Button>
+                  {onUpdateStatus && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" title="Change Status">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'approved')}
+                          disabled={processing || course.status?.toLowerCase() === 'approved'}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                          Approve
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'published')}
+                          disabled={processing || course.status?.toLowerCase() === 'published'}
+                        >
+                          <Send className="h-4 w-4 mr-2 text-blue-600" />
+                          Publish
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'draft')}
+                          disabled={processing || !course.status || course.status?.toLowerCase() === 'draft'}
+                        >
+                          <FileEdit className="h-4 w-4 mr-2 text-orange-600" />
+                          Save as Draft
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'pending')}
+                          disabled={processing || course.status?.toLowerCase() === 'pending'}
+                        >
+                          <Clock className="h-4 w-4 mr-2 text-yellow-600" />
+                          Submit for Review
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'rejected')}
+                          disabled={processing || course.status?.toLowerCase() === 'rejected'}
+                        >
+                          <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                          Reject
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onUpdateStatus(course.id, 'disabled')}
+                          disabled={processing || course.status?.toLowerCase() === 'disabled'}
+                        >
+                          <Archive className="h-4 w-4 mr-2 text-gray-600" />
+                          Disable
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -322,6 +406,108 @@ export function CourseApproval({
               Reject Course
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Course Details Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Course Details
+            </DialogTitle>
+            <DialogDescription>
+              View course information and instructor details
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCourse && (
+            <div className="space-y-6">
+              {/* Course Info */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">{selectedCourse.title}</h3>
+                <p className="text-sm text-muted-foreground">{selectedCourse.description || 'No description'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={
+                    (selectedCourse.status?.toLowerCase() === 'approved' || selectedCourse.status?.toLowerCase() === 'published') ? 'default' :
+                      selectedCourse.status?.toLowerCase() === 'pending' ? 'secondary' :
+                        selectedCourse.status?.toLowerCase() === 'rejected' ? 'destructive' : 'outline'
+                  }>
+                    {selectedCourse.status || 'draft'}
+                  </Badge>
+                  {selectedCourse.category && (
+                    <Badge variant="outline">{selectedCourse.category}</Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Instructor Info */}
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Instructor Details
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{selectedCourse.instructor_name || 'Unknown'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{selectedCourse.instructor_email || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Created: {selectedCourse.created_at ? new Date(selectedCourse.created_at).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  {selectedCourse.submitted_at && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>Submitted: {new Date(selectedCourse.submitted_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                {selectedCourse.status?.toLowerCase() !== 'approved' && selectedCourse.status?.toLowerCase() !== 'published' && (
+                  <Button
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      onApprove(selectedCourse.id);
+                      setShowViewDialog(false);
+                    }}
+                    disabled={processing}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </Button>
+                )}
+                {selectedCourse.status?.toLowerCase() !== 'rejected' && (
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => {
+                      setShowViewDialog(false);
+                      setSelectedCourse(selectedCourse);
+                      setShowRejectDialog(true);
+                    }}
+                    disabled={processing}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowViewDialog(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

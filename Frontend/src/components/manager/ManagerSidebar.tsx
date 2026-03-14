@@ -31,6 +31,7 @@ import {
   MonitorPlay,
   Video,
   KeyRound,
+  GraduationCap,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,11 +53,15 @@ const managementItems = [
   { id: "leaderboard", title: "Leaderboard", icon: Trophy },
   { id: "guests", title: "Guest Accounts", icon: UserPlus },
   { id: "access-control", title: "Access Control", icon: Shield },
+  { id: "instructors", title: "Instructors", icon: UserPlus },
 ];
 
 const monitoringItems = [
   { id: "monitoring", title: "Live Monitoring", icon: MonitorPlay },
   { id: "course-monitoring", title: "Course Progress", icon: BarChart3 },
+  { id: "enrollments", title: "Enrollments", icon: BookOpen },
+  { id: "course-assignment", title: "Assign Courses", icon: GraduationCap },
+  { id: "courses", title: "All Courses", icon: GraduationCap },
   { id: "video-library", title: "Video Library", icon: Video },
 ];
 

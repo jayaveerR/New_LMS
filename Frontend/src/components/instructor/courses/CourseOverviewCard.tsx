@@ -40,6 +40,7 @@ export function CourseOverviewCard({
   };
 
   const videoId = thumbnailUrl ? getYouTubeId(thumbnailUrl) : null;
+  const isS3Image = thumbnailUrl && !videoId && (thumbnailUrl.includes('s3') || thumbnailUrl.includes('blob') || thumbnailUrl.includes('http'));
 
   return (
     <motion.div
@@ -61,6 +62,12 @@ export function CourseOverviewCard({
               onError={(e) => {
                 (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
               }}
+            />
+          ) : isS3Image ? (
+            <img
+              src={thumbnailUrl || ''}
+              alt={title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">

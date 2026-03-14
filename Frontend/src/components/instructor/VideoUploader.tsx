@@ -1,24 +1,7 @@
-import { useState, useRef } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -26,97 +9,145 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  useVideos,
-  useTopics,
-  useCreateVideo,
-  useDeleteVideo,
-  uploadVideo,
-} from "@/hooks/useInstructorData";
-import {
-  Plus,
-  Video,
-  Trash2,
-  Upload,
-  Eye,
-  Clock,
-  PlayCircle,
-} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { useCourseModules, useModuleVideos, useS3Upload, CourseModule, S3CourseVideo } from "@/hooks/useCourseBuilder";
+import { fetchWithAuth } from "@/lib/api";
+import { Trash2, Lock, PlayCircle, MoreVertical, CheckCircle, Loader2, Plus, X, Video } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface VideoUploaderProps {
   courseId: string;
+  courseStatus?: string;
 }
 
-export function VideoUploader({ courseId }: VideoUploaderProps) {
-  const { data: videos = [], isLoading } = useVideos(courseId);
-  const { data: topics = [] } = useTopics(courseId);
-  const createVideo = useCreateVideo();
-  const deleteVideo = useDeleteVideo();
+export function VideoUploader({ courseId, courseStatus }: VideoUploaderProps) {
+  const { data: modules = [], isLoading: modulesLoading } = useCourseModules(courseId);
+  const { data: videos = [], isLoading: videosLoading, refetch } = useModuleVideos(null, courseId);
+  const uploadS3 = useS3Upload();
+  const { toast } = useToast();
 
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<S3CourseVideo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [newVideo, setNewVideo] = useState({
     title: "",
     description: "",
-    topic_id: "",
-    is_published: false,
+    module_id: "",
+    is_published: true,
   });
+
+  const isCourseApproved = courseStatus === 'approved' || courseStatus === 'published';
+
+  // Automatically set the first module as destination when modules are loaded
+  useEffect(() => {
+    if (modules && modules.length > 0 && !newVideo.module_id) {
+      setNewVideo(prev => ({ ...prev, module_id: (modules[0] as CourseModule).id }));
+    }
+  }, [modules]);
+
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
       setSelectedFile(file);
+      setVideoPreviewUrl(URL.createObjectURL(file));
       if (!newVideo.title) {
         setNewVideo({ ...newVideo, title: file.name.replace(/\.[^/.]+$/, "") });
       }
     }
   };
 
+  const clearFile = () => {
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    setSelectedFile(null);
+    setVideoPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile || !newVideo.title.trim()) return;
+    console.log('Upload started:', { selectedFile, title: newVideo.title, module_id: newVideo.module_id, courseId });
+    
+    if (!selectedFile || !newVideo.title.trim() || !newVideo.module_id) {
+      toast({
+        title: "Information Required",
+        description: "Please provide a title and select a destination module.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setUploading(true);
     setUploadProgress(0);
 
     try {
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      const videoUrl = await uploadVideo(selectedFile, courseId);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      await createVideo.mutateAsync({
-        course_id: courseId,
-        title: newVideo.title,
-        description: newVideo.description || null,
-        topic_id: newVideo.topic_id || null,
-        video_url: videoUrl,
-        thumbnail_url: null,
-        duration_seconds: 0,
-        order_index: videos.length,
-        is_published: newVideo.is_published,
+      console.log('Step 1: Uploading to S3...');
+      const videoUrl = await uploadS3.mutateAsync({
+        file: selectedFile,
+        customTitle: newVideo.title,
+        folder: 'LMS VIDEOS',
+        onProgress: setUploadProgress,
+        courseId
       });
+      console.log('Step 1 complete: S3 URL:', videoUrl);
+
+      console.log('Step 2: Saving to database...');
+      await fetchWithAuth(`/courses/${courseId}/videos`, {
+        method: 'POST',
+        body: JSON.stringify({
+          module_id: newVideo.module_id,
+          title: newVideo.title,
+          video_type: 's3',
+          video_url: videoUrl,
+          order_index: videos.length,
+        })
+      });
+      console.log('Step 2 complete: Database saved');
+
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 2000);
 
       setNewVideo({
         title: "",
         description: "",
-        topic_id: "",
-        is_published: false,
+        module_id: "",
+        is_published: true,
       });
-      setSelectedFile(null);
+      clearFile();
       setIsAddOpen(false);
-    } catch (error) {
+      refetch();
+      toast({ 
+        title: "Upload Successful", 
+        description: "Your video has been processed and added to the course." 
+      });
+    } catch (error: unknown) {
       console.error("Upload failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during the upload process.";
+      toast({
+        title: "Upload Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -124,230 +155,298 @@ export function VideoUploader({ courseId }: VideoUploaderProps) {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteVideo.mutateAsync({ id, courseId });
+    try {
+      await fetchWithAuth(`/data/course_videos/${id}`, { method: 'DELETE' });
+      refetch();
+      toast({ title: "Deleted", description: "Video removed from the course." });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not remove the video.", variant: "destructive" });
+    }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  const getModuleTitle = (moduleId: string) => {
+    const module = (modules as CourseModule[]).find((m) => m.id === moduleId);
+    return module?.title || 'Unknown Module';
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        Loading videos...
-      </div>
-    );
-  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-primary" />
-              Course Videos
-            </CardTitle>
-            <CardDescription>
-              Upload and manage recorded lectures
-            </CardDescription>
-          </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Upload className="h-4 w-4" />
-                Upload Video
+    <div className="space-y-6">
+      {/* Upload Form Section */}
+      <div className="pro-card bg-white rounded-[2.5rem] border-slate-100 p-8 shadow-sm">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Upload Course Video</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Choose a module and title to add a new video asset to your course library.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            {/* Video Title */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-slate-700 ml-1">Video Title</Label>
+              <Input
+                placeholder="E.g., Introduction to the Course"
+                value={newVideo.title}
+                onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
+                className="h-12 rounded-xl border-slate-200 bg-slate-50/50 focus:ring-primary/20 transition-all"
+              />
+            </div>
+
+            {/* Module Selector */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-slate-700 ml-1">Select Module</Label>
+              <Select
+                value={newVideo.module_id}
+                onValueChange={(value) => setNewVideo({ ...newVideo, module_id: value })}
+                disabled={modulesLoading || modules.length === 0}
+              >
+                <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50/50 cursor-pointer">
+                  <SelectValue placeholder={modulesLoading ? "Loading modules..." : "Choose a module"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(modules as CourseModule[]).map((module) => (
+                    <SelectItem key={module.id} value={module.id}>
+                      {module.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  clearFile();
+                  setNewVideo({ title: "", description: "", module_id: "", is_published: true });
+                }} 
+                disabled={uploading}
+                className="rounded-xl h-12 px-6 border border-slate-100 hover:bg-slate-50"
+              >
+                Cancel
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Upload Video</DialogTitle>
-                <DialogDescription>
-                  Add a new video to your course
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div
-                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  {selectedFile ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <Video className="h-8 w-8 text-primary" />
-                      <div className="text-left">
-                        <p className="font-medium">{selectedFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                        </p>
+              <Button 
+                onClick={() => handleUpload()}
+                disabled={uploading || !selectedFile || !newVideo.title || !newVideo.module_id}
+                className={`flex-1 rounded-xl h-12 font-bold shadow-lg transition-all ${uploadSuccess ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'pro-button-primary shadow-primary/20'}`}
+              >
+                {uploading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Video className="h-5 w-5 mr-2" />}
+                {uploadSuccess ? (
+                  <span className="flex items-center gap-2"><CheckCircle className="h-5 w-5" /> Uploaded!</span>
+                ) : 'Confirm Upload'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Video File Upload */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-slate-700 ml-1">Video File</Label>
+              <div 
+                className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer group min-h-[200px] flex flex-col items-center justify-center
+                  ${selectedFile ? 'border-primary/30 bg-primary/5' : 'border-slate-200 bg-slate-50/50 hover:border-primary/40 hover:bg-slate-50'}`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                {videoPreviewUrl ? (
+                  <div className="space-y-4 w-full">
+                    <div className="relative mx-auto max-w-[280px] aspect-video rounded-xl overflow-hidden shadow-md">
+                      <video src={videoPreviewUrl} className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <PlayCircle className="h-8 w-8 text-white" />
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm font-medium">
-                        Click to select video
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        MP4, WebM up to 500MB
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {uploading && (
-                  <div className="space-y-2">
-                    <Progress value={uploadProgress} />
-                    <p className="text-sm text-center text-muted-foreground">
-                      Uploading... {uploadProgress}%
-                    </p>
+                    <div className="flex items-center justify-center gap-2 text-primary font-medium">
+                      <Video className="h-4 w-4" />
+                      <span className="text-sm truncate max-w-[200px]">{selectedFile?.name}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full hover:bg-red-50 hover:text-red-500" 
+                        onClick={(e) => { e.stopPropagation(); clearFile(); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-4">
+                    <div className="h-16 w-16 bg-white rounded-3xl shadow-sm flex items-center justify-center mx-auto text-slate-400 group-hover:text-primary transition-all group-hover:scale-110">
+                      <Plus className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-700">Click or drag video here</p>
+                      <p className="text-xs text-slate-400 mt-1">MP4, WebM or Ogg (Max 500MB)</p>
+                    </div>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="video-title">Title</Label>
-                  <Input
-                    id="video-title"
-                    placeholder="Video title"
-                    value={newVideo.title}
-                    onChange={(e) =>
-                      setNewVideo({ ...newVideo, title: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="video-description">Description</Label>
-                  <Textarea
-                    id="video-description"
-                    placeholder="Video description (optional)"
-                    value={newVideo.description}
-                    onChange={(e) =>
-                      setNewVideo({ ...newVideo, description: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Link to Topic (optional)</Label>
-                  <Select
-                    value={newVideo.topic_id}
-                    onValueChange={(value) =>
-                      setNewVideo({ ...newVideo, topic_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a topic" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">No topic</SelectItem>
-                      {topics.map((topic) => (
-                        <SelectItem key={topic.id} value={topic.id}>
-                          {topic.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="published">Publish immediately</Label>
-                  <Switch
-                    id="published"
-                    checked={newVideo.is_published}
-                    onCheckedChange={(checked) =>
-                      setNewVideo({ ...newVideo, is_published: checked })
-                    }
-                  />
-                </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={uploading || !selectedFile || createVideo.isPending}
-                >
-                  {uploading ? "Uploading..." : "Upload Video"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {videos.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <PlayCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No videos uploaded yet.</p>
-            <p className="text-sm">Upload your first video to get started.</p>
+            </div>
+
+            {uploading && (
+              <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                  <span>Uploading Video...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2 rounded-full bg-slate-200" />
+                <p className="text-[10px] text-center text-slate-400 italic">Please do not close this window</p>
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+      
+      {/* Search and Filters (Optional space for later) */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-slate-800">Your Video Library ({videos.length})</h3>
+      </div>
+      
+      {/* Dynamic Content Grid */}
+      <AnimatePresence mode="wait">
+        {videosLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-64 bg-slate-100 animate-pulse rounded-[2.5rem]" />
+            ))}
+          </div>
+        ) : !isCourseApproved ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center p-16 bg-slate-50/50 rounded-[3rem] border border-slate-100 text-center"
+          >
+            <div className="h-20 w-20 bg-white rounded-full shadow-lg flex items-center justify-center mb-6">
+              <Lock className="h-8 w-8 text-slate-300" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">Upload Status Locked</h3>
+            <p className="text-slate-500 max-w-sm mt-3 leading-relaxed">
+              Your course is currently in the review phase. Once an administrator approves the syllabus, 
+              you can begin deploying your video assets.
+            </p>
+            <Button variant="outline" className="mt-8 rounded-2xl h-12 px-8 border-slate-200 font-bold">
+              Check Review Progress
+            </Button>
+          </motion.div>
+        ) : videos.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center"
+          >
+            <p className="text-slate-400 text-sm">No videos yet</p>
+          </motion.div>
         ) : (
-          <div className="space-y-3">
-            {videos.map((video, idx) => (
-              <div
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {(videos as S3CourseVideo[]).map((video, index: number) => (
+              <motion.div
                 key={video.id}
-                className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ y: -8 }}
+                className="group relative cursor-pointer"
+                onClick={() => setPlayingVideo(video)}
               >
-                <div className="h-16 w-24 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <PlayCircle className="h-8 w-8 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium truncate">{video.title}</h4>
-                    <Badge
-                      variant={video.is_published ? "default" : "secondary"}
-                    >
-                      {video.is_published ? "Published" : "Draft"}
-                    </Badge>
-                  </div>
-                  {video.description && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {video.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                    {video.duration_seconds > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDuration(video.duration_seconds)}
-                      </span>
+                <div className="pro-card h-full bg-white rounded-[2.5rem] border-slate-100 p-3 shadow-sm hover:shadow-2xl hover:border-primary/5 transition-all duration-500 overflow-hidden flex flex-col">
+                  {/* Thumbnail Container */}
+                  <div className="relative aspect-video rounded-[2rem] bg-slate-100 overflow-hidden shadow-inner group-hover:shadow-2xl transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {video.video_url ? (
+                      <video
+                        src={video.video_url}
+                        className="h-full w-full object-cover translate-z-0 transition-transform duration-1000 group-hover:scale-110"
+                        preload="metadata"
+                        onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                        onMouseLeave={(e) => {
+                          const v = e.target as HTMLVideoElement;
+                          v.pause();
+                          v.currentTime = 0;
+                        }}
+                        muted
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <PlayCircle className="h-12 w-12 text-slate-200" />
+                      </div>
                     )}
+                    <div className="absolute top-4 left-4 z-20">
+                       <Badge className="bg-white/80 backdrop-blur-md text-slate-900 border-none font-bold text-[10px] uppercase shadow-sm">
+                        {getModuleTitle(video.module_id)}
+                       </Badge>
+                    </div>
+                    <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-black/20">
+                      <div className="h-16 w-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
+                        <PlayCircle className="h-8 w-8 text-primary ml-1" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                         <h4 className="font-black text-lg text-slate-900 leading-tight group-hover:text-primary transition-colors truncate">{video.title}</h4>
+                      </div>
+                      <p className="text-slate-500 text-sm font-medium line-clamp-2 leading-relaxed">
+                        {video.description || "Educational content assets deployed to your module library."}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-5">
+                       <div className="flex items-center gap-2">
+                         <div className={`h-2 w-2 rounded-full ${video.is_published ? 'bg-green-500' : 'bg-slate-300'}`} />
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                           {video.is_published ? "Live Access" : "Development"}
+                         </span>
+                       </div>
+                       <div className="flex items-center gap-1">
+                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-50 text-slate-400" title="Settings">
+                           <MoreVertical className="h-4 w-4" />
+                         </Button>
+                         <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(video.id)}
+                          className="h-9 w-9 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                          title="Purge Asset"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                       </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" asChild>
-                    <a
-                      href={video.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </a>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(video.id)}
-                    disabled={deleteVideo.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </AnimatePresence>
+
+      {/* Video Player Modal */}
+      <Dialog open={!!playingVideo} onOpenChange={() => setPlayingVideo(null)}>
+        <DialogContent className="max-w-5xl w-full p-0 bg-black rounded-3xl overflow-hidden border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{playingVideo?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden">
+            {playingVideo?.video_url && (
+              <video
+                src={playingVideo.video_url}
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

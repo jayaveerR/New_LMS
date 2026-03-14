@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,12 @@ import { CourseMonitoring } from "@/components/manager/CourseMonitoring";
 import { ExamRulesManager } from "@/components/manager/ExamRulesManager";
 import { ManagerCourses } from "@/components/manager/ManagerCourses";
 import { QuestionBankStudentAccess } from "@/components/manager/QuestionBankStudentAccess";
+import { EnrollmentsList } from "@/components/admin/EnrollmentsList";
+import { CourseAssignment } from "@/components/admin/CourseAssignment";
+import { InstructorManagement } from "@/components/manager/InstructorManagement";
+import { ManagerVideoLibrary } from "@/components/manager/ManagerVideoLibrary";
+import { useAdminData } from "@/hooks/useAdminData";
+import { useCourses, CourseEnrollment } from "@/hooks/useCourses";
 import {
   Card,
   CardContent,
@@ -79,6 +85,29 @@ export default function ManagerDashboard() {
   const { data: mockTests = [] } = useMockTestConfigs();
   const { data: examRules = [] } = useExamRules();
   const { data: examResults = [] } = useExamResults();
+
+  const { updateEnrollmentStatus } = useAdminData();
+  const { fetchEnrollments } = useCourses();
+  const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
+
+  const loadEnrollments = useCallback(async () => {
+    setEnrollmentsLoading(true);
+    try {
+      const data = await fetchEnrollments();
+      setEnrollments(data);
+    } catch (err) {
+      console.error('Failed to load enrollments:', err);
+    } finally {
+      setEnrollmentsLoading(false);
+    }
+  }, [fetchEnrollments]);
+
+  useEffect(() => {
+    if (user && activeSection === 'enrollments') {
+      loadEnrollments();
+    }
+  }, [user, activeSection, loadEnrollments]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -464,10 +493,35 @@ export default function ManagerDashboard() {
         return <ExamMonitoring />;
       case "course-monitoring":
         return <CourseMonitoring />;
+      case "enrollments":
+        return (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-3xl font-bold tracking-tight">Enrollment Management</h2>
+              <p className="text-sm text-muted-foreground font-medium">Review and approve student course access requests</p>
+            </div>
+            <EnrollmentsList 
+              enrollments={enrollments} 
+              loading={enrollmentsLoading} 
+              onUpdateStatus={async (id, status) => {
+                const success = await updateEnrollmentStatus(id, status);
+                if (success) {
+                  loadEnrollments();
+                }
+              }}
+            />
+          </div>
+        );
+      case "courses":
+        return <ManagerCourses />;
+      case "course-assignment":
+        return <CourseAssignment />;
+      case "instructors":
+        return <InstructorManagement />;
       case "student-access":
         return <QuestionBankStudentAccess />;
       case "video-library":
-        return <ManagerCourses />;
+        return <ManagerVideoLibrary />;
       default:
         return renderOverview();
     }

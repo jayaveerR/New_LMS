@@ -5,30 +5,17 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 const { generateUploadUrl, generateViewUrl, deleteObject } = require('./utils/s3');
-const axios = require('axios');
+const axios = require('axios'); // Note: Added axios for easier Zoom API calls
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-/**
- * Convert integer course ID to UUID format
- * This maps courses with integer IDs (1, 2, 3...) to UUID format for tables that require UUID
- * Uses a deterministic conversion: course_id -> 00000000-0000-0000-0000-00000000XXXX
- */
-const intToUuid = (num) => {
-    const hex = num.toString(16).padStart(12, '0');
-    return `00000000-0000-0000-0000-${hex.padStart(12, '0')}`;
-};
-
-// Helper to get admin client that bypasses RLS (for backend operations)
-const getAdminClient = () => {
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-    return createClient(process.env.SUPABASE_URL, serviceKey, {
-        auth: { persistSession: false }
-    });
-};
+// Zoom Credentials
+const ZOOM_ACCOUNT_ID = process.env.ACCOUNT_ID;
+const ZOOM_CLIENT_ID = process.env.CLIENT_ID;
+const ZOOM_CLIENT_SECRET = process.env.CLIENT_SECRET;
 
 /**
  * Zoom OAuth Header Helper
@@ -66,15 +53,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Service role key for admin operations
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Admin client with service role to bypass RLS
-const getSupabaseAdmin = () => {
-    // Use service role key if available, otherwise use regular key
-    const adminKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-    return createClient(supabaseUrl, adminKey);
-};
 
 // Helper to get authenticated Supabase client
 const getAuthClient = (supabaseToken) => {
@@ -117,26 +96,13 @@ const authenticateToken = (req, res, next) => {
 // Admin check middleware
 const requireAdmin = async (req, res, next) => {
     try {
-        console.log(`[Auth Check] Admin requirement for user: ${req.user.id}`);
         const authClient = getAuthClient(req.supabaseToken);
-
-        // First check if any admins exist at all
-        const { count: adminCount, error: countError } = await authClient
-            .from('user_roles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'admin');
-
-        if (!countError && adminCount === 0) {
-            console.log(`[Auth Fallback] No admins found in database. Permitting ${req.user.id} to act as admin.`);
-            return next();
-        }
-
         const { data, error } = await authClient
             .from('user_roles')
             .select('role')
             .eq('user_id', req.user.id)
             .eq('role', 'admin')
-            .maybeSingle();
+            .single();
 
         if (error || !data) {
             console.warn(`[Auth] User ${req.user.id} denied admin access. (No admin role found in table)`);
@@ -144,64 +110,18 @@ const requireAdmin = async (req, res, next) => {
         }
         next();
     } catch (err) {
-        console.error('[Auth Error] requireAdmin:', err);
-        res.status(500).json({ error: 'Internal server error during authorization' });
-    }
-};
-
-// Admin or Manager check middleware
-const requireAdminOrManager = async (req, res, next) => {
-    try {
-        console.log(`[Auth Check] Admin/Manager requirement for user: ${req.user.id}`);
-        const authClient = getAuthClient(req.supabaseToken);
-
-        // Fallback: If no roles exist at all, permit access
-        const { count, error: countError } = await authClient
-            .from('user_roles')
-            .select('*', { count: 'exact', head: true });
-
-        if (!countError && count === 0) {
-            console.log(`[Auth Fallback] No roles found in database. Permitting ${req.user.id} to act as admin/manager.`);
-            return next();
-        }
-
-        const { data, error } = await authClient
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', req.user.id)
-            .in('role', ['admin', 'manager'])
-            .maybeSingle();
-
-        if (error || !data) {
-            console.warn(`[Auth] User ${req.user.id} denied access. (No admin/manager role found)`);
-            return res.status(403).json({ error: 'Admin or Manager access required' });
-        }
-        next();
-    } catch (err) {
-        console.error('[Auth Error] requireAdminOrManager:', err);
         res.status(500).json({ error: 'Internal server error during authorization' });
     }
 };
 
 const requireManager = async (req, res, next) => {
     try {
-        console.log(`[Auth Check] Manager requirement for user: ${req.user.id}`);
         const authClient = getAuthClient(req.supabaseToken);
-
-        // Fallback if no managers/admins exist
-        const { count, error: countError } = await authClient
-            .from('user_roles')
-            .select('*', { count: 'exact', head: true });
-
-        if (!countError && count === 0) {
-            return next();
-        }
-
         const { data, error } = await authClient
             .from('user_roles')
             .select('role')
             .eq('user_id', req.user.id)
-            .maybeSingle();
+            .single();
 
         if (error || !['admin', 'manager'].includes(data?.role)) {
             console.warn(`[Auth] User ${req.user.id} denied manager access.`);
@@ -209,30 +129,18 @@ const requireManager = async (req, res, next) => {
         }
         next();
     } catch (err) {
-        console.error('[Auth Error] requireManager:', err);
         res.status(500).json({ error: 'Internal server error during authorization' });
     }
 };
 
 const requireInstructor = async (req, res, next) => {
     try {
-        console.log(`[Auth Check] Instructor requirement for user: ${req.user.id}`);
         const authClient = getAuthClient(req.supabaseToken);
-
-        // Fallback for empty table
-        const { count, error: countError } = await authClient
-            .from('user_roles')
-            .select('*', { count: 'exact', head: true });
-
-        if (!countError && count === 0) {
-            return next();
-        }
-
         const { data, error } = await authClient
             .from('user_roles')
             .select('role')
             .eq('user_id', req.user.id)
-            .maybeSingle();
+            .single();
 
         if (error || !['admin', 'instructor', 'manager'].includes(data?.role)) {
             console.warn(`[Auth] No instructor role for ${req.user.id}, checking ownership context...`);
@@ -240,7 +148,6 @@ const requireInstructor = async (req, res, next) => {
         }
         next();
     } catch (err) {
-        console.error('[Auth Error] requireInstructor:', err);
         res.status(500).json({ error: 'Internal server error during authorization' });
     }
 };
@@ -420,8 +327,8 @@ app.post('/api/admin/send-approval-email', authenticateToken, requireAdmin, asyn
         const { data: userRole } = await supabase.from('user_roles').select('role').eq('user_id', userId).single();
         const roleName = userRole?.role || 'student';
 
-        // Trigger N8N for approval email
-        const n8nUrl = process.env.N8N_WEBHOOK_URL || 'https://aotms.app.n8n.cloud/webhook/Email';
+        // Trigger N8N (Important: remove "-test" if you want permanent production access)
+        const n8nUrl = 'https://aotms.app.n8n.cloud/webhook-test/Email';
 
         await axios.post(n8nUrl, {
             event: 'user_approved',
@@ -530,8 +437,8 @@ app.get('/api/manager/lookup-student/:studentId', authenticateToken, requireMana
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('user_id, id, full_name, email, approval_status')
-            .or(`id.eq.${studentId},user_id.eq.${studentId}`)
+            .select('user_id, full_name, email, approval_status')
+            .eq('id', studentId)
             .single();
 
         if (error || !data) {
@@ -615,117 +522,16 @@ app.post('/api/auth/logout', async (req, res) => {
     res.json({ message: 'Logged out successfully' });
 });
 
-// OTP Authentication Routes
-const OTP_STORAGE = new Map(); // In-memory OTP storage (use Redis in production)
-
-function generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Store OTP with 5-minute expiry
-function storeOTP(email, otp) {
-    OTP_STORAGE.set(email, {
-        otp,
-        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
-    });
-}
-
-function verifyOTP(email, otp) {
-    const stored = OTP_STORAGE.get(email);
-    if (!stored) return false;
-    
-    if (Date.now() > stored.expiresAt) {
-        OTP_STORAGE.delete(email);
-        return false;
-    }
-    
-    if (stored.otp === otp) {
-        OTP_STORAGE.delete(email);
-        return true;
-    }
-    return false;
-}
-
-// Send OTP to email
-app.post('/api/auth/send-otp', async (req, res) => {
-    const { email, full_name } = req.body;
-    
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
-    }
-
-    try {
-        const otp = generateOTP();
-        storeOTP(email, otp);
-        
-        // Log OTP for development (in production, send via email service)
-        console.log(`[OTP] Email: ${email}, OTP: ${otp}`);
-        
-        // Try to trigger email via N8N if available
-        try {
-            const n8nUrl = process.env.N8N_WEBHOOK_URL || 'https://aotms.app.n8n.cloud/webhook/Email';
-            await axios.post(n8nUrl, {
-                event: 'otp_verification',
-                email: email,
-                otp: otp,
-                full_name: full_name || 'User'
-            }, { timeout: 5000 });
-        } catch (emailErr) {
-            console.log('[OTP] N8N email trigger failed, OTP logged in console');
-        }
-
-        res.json({
-            message: 'OTP sent successfully',
-            expiresIn: 300 // 5 minutes in seconds
-        });
-    } catch (err) {
-        console.error('Send OTP error:', err);
-        res.status(500).json({ error: 'Failed to send OTP' });
-    }
-});
-
-// Verify OTP
-app.post('/api/auth/verify-otp', async (req, res) => {
-    const { email, otp } = req.body;
-    
-    if (!email || !otp) {
-        return res.status(400).json({ error: 'Email and OTP are required' });
-    }
-
-    try {
-        const isValid = verifyOTP(email, otp);
-        
-        if (isValid) {
-            res.json({
-                message: 'OTP verified successfully',
-                full_name: '' // Return empty string to indicate verified
-            });
-        } else {
-            res.status(400).json({ error: 'Invalid or expired OTP' });
-        }
-    } catch (err) {
-        console.error('Verify OTP error:', err);
-        res.status(500).json({ error: 'Failed to verify OTP' });
-    }
-});
-
 // User Routes
 app.get('/api/user/role', authenticateToken, async (req, res) => {
     try {
-        if (!req.supabaseToken) {
-            return res.status(401).json({ error: 'Invalid token format' });
-        }
-        
         const authClient = getAuthClient(req.supabaseToken);
         const { data, error } = await authClient
             .from('user_roles')
             .select('role')
             .eq('user_id', req.user.id);
 
-        if (error) {
-            console.error('Error fetching user role:', error);
-            return res.json({ role: 'student' });
-        }
+        if (error) throw error;
 
         if (!data || data.length === 0) {
             return res.json({ role: 'student' });
@@ -747,10 +553,6 @@ app.get('/api/user/role', authenticateToken, async (req, res) => {
 
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
-        if (!req.supabaseToken) {
-            return res.status(401).json({ error: 'Invalid token format' });
-        }
-        
         const authClient = getAuthClient(req.supabaseToken);
         const { data, error } = await authClient
             .from('profiles')
@@ -908,45 +710,21 @@ app.post('/api/instructor/register', upload.single('resume'), async (req, res) =
     }
 });
 
-app.get('/api/instructor/courses', authenticateToken, async (req, res) => {
+app.get('/api/instructor/courses', authenticateToken, requireInstructor, async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
     try {
-        if (!req.supabaseToken) {
-            return res.status(401).json({ error: 'Invalid token format' });
-        }
-        
         const authClient = getAuthClient(req.supabaseToken);
         const { data: { user } } = await authClient.auth.getUser();
         if (!user) throw new Error('Unauthorized');
-
-        console.log('[InstructorCourses] Fetching courses for user:', user.id);
 
         const { data, error } = await authClient
             .from('courses')
             .select('*')
             .eq('instructor_id', user.id)
             .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error('[InstructorCourses] Error:', error);
-            throw error;
-        }
-        
-        // Get instructor name from profile
-        const { data: profile } = await authClient
-            .from('profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-
-        const coursesWithStatus = (data || []).map(c => ({
-            ...c,
-            instructor_name: profile?.full_name || 'Unknown'
-        }));
-
-        console.log('[InstructorCourses] Found courses:', coursesWithStatus?.length || 0);
-        res.json(coursesWithStatus || []);
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
-        console.error('[InstructorCourses] Catch Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -954,51 +732,14 @@ app.get('/api/instructor/courses', authenticateToken, async (req, res) => {
 // Generic Course Sub-resources (Topics, Videos, Resources, etc)
 const createCourseResourceRoutes = (resourceName, tableName) => {
     app.get(`/api/courses/:courseId/${resourceName}`, async (req, res) => {
-        let { courseId } = req.params;
-        const { module_id } = req.query;
-        
-        // Handle case where courseId is numeric - convert to UUID for querying
-        if (/^\d+$/.test(courseId)) {
-            courseId = intToUuid(parseInt(courseId));
-        }
-        
+        const { courseId } = req.params;
         try {
-            // Use service role key to bypass RLS for reads
-            const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-            const supabaseAdmin = createClient(process.env.SUPABASE_URL, serviceKey, {
-                auth: { persistSession: false }
-            });
-            
-            let query = supabaseAdmin
+            const { data, error } = await supabase // Public read or use authClient if private
                 .from(tableName)
-                .select('*');
-
-            // Handle tables with module_id (course_videos) vs course_id (others)
-            if (tableName === 'course_videos') {
-                if (module_id) {
-                    // Filter by specific module
-                    query = query.eq('module_id', module_id);
-                } else {
-                    // Get all videos for course via modules - use admin client
-                    const { data: moduleIds } = await supabaseAdmin
-                        .from('course_modules')
-                        .select('id')
-                        .eq('course_id', courseId);
-                    
-                    if (moduleIds && moduleIds.length > 0) {
-                        query = query.in('module_id', moduleIds.map(m => m.id));
-                    } else {
-                        return res.json([]);
-                    }
-                }
-            } else {
-                query = query.eq('course_id', courseId);
-            }
-
-            // Order by common fields
-            query = query.order(tableName === 'course_timeline' ? 'scheduled_date' : (tableName === 'course_announcements' ? 'created_at' : 'order_index'), { ascending: tableName !== 'course_announcements' });
-
-            const { data, error } = await query;
+                .select('*')
+                .eq('course_id', courseId)
+                // Try ordering by common fields, ignore if not present in specific table logic for now
+                .order(tableName === 'course_timeline' ? 'scheduled_date' : (tableName === 'course_announcements' ? 'created_at' : 'order_index'), { ascending: tableName !== 'course_announcements' });
 
             if (error) throw error;
             res.json(data);
@@ -1009,88 +750,22 @@ const createCourseResourceRoutes = (resourceName, tableName) => {
 
     app.post(`/api/courses/:courseId/${resourceName}`, authenticateToken, requireInstructor, async (req, res) => {
         try {
-            // Use admin client for inserts to bypass RLS
-            const adminClient = getAdminClient();
-            let { courseId } = req.params;
+            const authClient = getAuthClient(req.supabaseToken);
 
-            console.log(`[${tableName}] POST request - courseId: ${courseId}, body:`, req.body);
+            // Log incoming data for debugging
+            console.log(`Inserting into ${tableName}:`, req.body);
 
-            // Handle case where courseId is numeric - get the actual course record
-            let actualCourseId = courseId;
-            if (/^\d+$/.test(courseId)) {
-                const numericId = parseInt(courseId);
-                const { data: courseData, error: courseError } = await supabase
-                    .from('courses')
-                    .select('id')
-                    .eq('id', numericId)
-                    .single();
-                
-                if (courseError || !courseData) {
-                    return res.status(400).json({ error: 'Course not found' });
-                }
-                // Convert integer course ID to UUID for tables that require UUID
-                actualCourseId = intToUuid(numericId);
-                console.log(`[${tableName}] Converted courseId from ${courseId} to ${actualCourseId}`);
+            const { data, error } = await authClient
+                .from(tableName)
+                .insert(req.body)
+                .select()
+                .single();
+
+            if (error) {
+                console.error(`Supabase error inserting into ${tableName}:`, error);
+                return res.status(400).json({ error: error.message, details: error.details, hint: error.hint });
             }
 
-            let insertData;
-            if (tableName === 'course_videos') {
-                // course_videos uses module_id - verify the module belongs to this course
-                const moduleId = req.body.module_id;
-                if (moduleId) {
-                    // Use service role key to bypass RLS for module lookup
-                    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-                    const supabaseAdmin = createClient(process.env.SUPABASE_URL, serviceKey, {
-                        auth: { persistSession: false }
-                    });
-                    
-                    const { data: moduleCheck, error: moduleError } = await supabaseAdmin
-                        .from('course_modules')
-                        .select('id, course_id')
-                        .eq('id', moduleId)
-                        .single();
-                    
-                    if (moduleError || !moduleCheck) {
-                        return res.status(400).json({ error: 'Module not found' });
-                    }
-                    
-                    // Handle both UUID and integer comparison
-                    const moduleCourseId = String(moduleCheck.course_id);
-                    const requestedCourseId = String(actualCourseId);
-                    if (moduleCourseId !== requestedCourseId) {
-                        return res.status(400).json({ error: 'Module does not belong to this course' });
-                    }
-                }
-                insertData = { ...req.body };
-            } else {
-                // Other tables use course_id
-                insertData = {
-                    ...req.body,
-                    course_id: actualCourseId
-                };
-            }
-
-            console.log(`[${tableName}] Insert data:`, insertData);
-
-            // Use service role key to bypass RLS
-            const supabaseUrl = process.env.SUPABASE_URL;
-            const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-            
-            const response = await axios.post(
-                `${supabaseUrl}/rest/v1/${tableName}`,
-                insertData,
-                {
-                    headers: {
-                        'apikey': serviceKey,
-                        'Authorization': `Bearer ${serviceKey}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    }
-                }
-            );
-
-            const data = Array.isArray(response.data) ? response.data[0] : response.data;
-            console.log(`[${tableName}] Insert success:`, data);
             res.json(data);
         } catch (err) {
             console.error(`Internal server error for ${tableName}:`, err);
@@ -1219,48 +894,13 @@ const ADMIN_ONLY_TABLES = [
     'user_roles', 'platform_settings', 'system_logs', 'security_events', 'user_suspensions'
 ];
 
-// Helper function to check if user is admin or manager
-const isAdminOrManager = async (authClient, userId) => {
-    const { data } = await authClient
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .in('role', ['admin', 'manager'])
-        .maybeSingle();
-    return !!data;
-};
-
 // --- S3 Presigned URL Routes ---
 
 app.post('/api/s3/upload-url', authenticateToken, requireInstructor, async (req, res) => {
     try {
-        const { fileName, fileType, folder, courseId } = req.body;
+        const { fileName, fileType, folder } = req.body;
         if (!fileName || !fileType) {
             return res.status(400).json({ error: 'fileName and fileType are required' });
-        }
-
-        // If courseId provided, check if course is approved for video upload
-        if (courseId) {
-            const { data: course } = await supabase
-                .from('courses')
-                .select('status, instructor_id')
-                .eq('id', courseId)
-                .single();
-
-            if (!course) {
-                return res.status(404).json({ error: 'Course not found' });
-            }
-
-            // Only allow upload if course is approved/published OR user owns the course
-            const isOwner = course.instructor_id === req.user.id;
-            const isApproved = ['approved', 'published'].includes(course.status?.toLowerCase());
-            
-            if (!isOwner && !isApproved) {
-                return res.status(403).json({ 
-                    error: 'Course must be approved before uploading videos',
-                    requiresApproval: true 
-                });
-            }
         }
 
         // Use requested folder or default to user.id
@@ -1316,11 +956,11 @@ app.get('/api/data/:table', authenticateToken, async (req, res) => {
     const { table } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(403).json({ error: `Access denied to table: ${table}` });
 
-    // Check admin-only tables - allow both admin and manager
+    // Check admin-only tables
     if (ADMIN_ONLY_TABLES.includes(table)) {
         const authClient = getAuthClient(req.supabaseToken);
-        const hasAccess = await isAdminOrManager(authClient, req.user.id);
-        if (!hasAccess) return res.status(403).json({ error: 'Admin or Manager access required for this table' });
+        const { data: roleData } = await authClient.from('user_roles').select('role').eq('user_id', req.user.id).eq('role', 'admin').single();
+        if (!roleData) return res.status(403).json({ error: 'Admin access required for this table' });
     }
 
     try {
@@ -1335,54 +975,6 @@ app.get('/api/data/:table', authenticateToken, async (req, res) => {
 
         const { data, error } = await query;
         if (error) return handleSupabaseError(res, error, table);
-
-        // Enrich courses with instructor details
-        if (table === 'courses' && data && data.length > 0) {
-            const instructorIds = [...new Set(data.map(c => c.instructor_id).filter(Boolean))];
-            if (instructorIds.length > 0) {
-                const { data: profiles } = await authClient
-                    .from('profiles')
-                    .select('id, full_name, email')
-                    .in('id', instructorIds);
-
-                const profileMap = (profiles || []).reduce((acc, p) => {
-                    acc[p.id] = p;
-                    return acc;
-                }, {});
-
-                const enrichedData = data.map(c => ({
-                    ...c,
-                    instructor_name: c.instructor_id ? profileMap[c.instructor_id]?.full_name || 'Not Assigned' : 'Not Assigned',
-                    instructor_email: c.instructor_id ? profileMap[c.instructor_id]?.email || '' : ''
-                }));
-                return res.json(enrichedData);
-            }
-        }
-
-        // Enrich course_enrollments with course details
-        if (table === 'course_enrollments' && data && data.length > 0) {
-            const courseIds = [...new Set(data.map(e => e.course_id).filter(Boolean))];
-            if (courseIds.length > 0) {
-                const { data: courses } = await authClient
-                    .from('courses')
-                    .select('id, title, category, image, thumbnail_url')
-                    .in('id', courseIds);
-
-                const courseMap = (courses || []).reduce((acc, c) => {
-                    acc[c.id] = c;
-                    return acc;
-                }, {});
-
-                const enrichedData = data.map(e => ({
-                    ...e,
-                    course_title: e.course_id ? courseMap[e.course_id]?.title || '' : '',
-                    course_category: e.course_id ? courseMap[e.course_id]?.category || '' : '',
-                    course_thumbnail: e.course_id ? (courseMap[e.course_id]?.thumbnail_url || courseMap[e.course_id]?.image || '') : ''
-                }));
-                return res.json(enrichedData);
-            }
-        }
-
         res.json(data);
     } catch (err) {
         handleSupabaseError(res, err, table);
@@ -1394,11 +986,11 @@ app.put('/api/data/:table/:id', authenticateToken, async (req, res) => {
     const { table, id } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(403).json({ error: `Access denied to table: ${table}` });
 
-    // Only admin can update admin-only tables - allow manager too
+    // Only admin can update admin-only tables
     if (ADMIN_ONLY_TABLES.includes(table)) {
         const authClient = getAuthClient(req.supabaseToken);
-        const hasAccess = await isAdminOrManager(authClient, req.user.id);
-        if (!hasAccess) return res.status(403).json({ error: 'Admin or Manager access required for this table' });
+        const { data: roleData } = await authClient.from('user_roles').select('role').eq('user_id', req.user.id).eq('role', 'admin').single();
+        if (!roleData) return res.status(403).json({ error: 'Admin access required for this table' });
     }
 
     // For courses, require admin or the owning instructor
@@ -1416,26 +1008,10 @@ app.put('/api/data/:table/:id', authenticateToken, async (req, res) => {
     }
 
     try {
-        // Filter out fields that don't exist in the table to avoid schema cache errors
-        const allowedFields = ['title', 'description', 'category', 'status', 'thumbnail_url', 'image', 
-                              'instructor_id', 'instructor_name', 'submitted_at', 'reviewed_at', 
-                              'reviewed_by', 'rejection_reason', 'is_active', 'updated_at', 'duration', 
-                              'level', 'price', 'original_price', 'rating', 'theme_color', 'trainer', 'slug'];
-        
-        const filteredBody = {};
-        Object.keys(req.body).forEach(key => {
-            if (allowedFields.includes(key)) {
-                filteredBody[key] = req.body[key];
-            }
-        });
-
-        // Always update updated_at
-        filteredBody.updated_at = new Date().toISOString();
-
         // Use service role for admin updates to bypass RLS
         const { data, error } = await supabase
             .from(table)
-            .update(filteredBody)
+            .update(req.body)
             .eq('id', id)
             .select()
             .single();
@@ -1454,8 +1030,8 @@ app.delete('/api/data/:table/:id', authenticateToken, async (req, res) => {
 
     if (ADMIN_ONLY_TABLES.includes(table)) {
         const authClient = getAuthClient(req.supabaseToken);
-        const hasAccess = await isAdminOrManager(authClient, req.user.id);
-        if (!hasAccess) return res.status(403).json({ error: 'Admin or Manager access required for this table' });
+        const { data: roleData } = await authClient.from('user_roles').select('role').eq('user_id', req.user.id).eq('role', 'admin').single();
+        if (!roleData) return res.status(403).json({ error: 'Admin access required for this table' });
     }
 
     try {
@@ -1473,24 +1049,14 @@ app.put('/api/admin/approve-course', authenticateToken, requireAdmin, async (req
     const { courseId, status, rejectionReason } = req.body;
     if (!courseId || !status) return res.status(400).json({ error: 'courseId and status are required' });
 
-    // Validate status
-    const validStatuses = ['approved', 'rejected', 'published', 'draft', 'disabled'];
-    if (!validStatuses.includes(status)) {
-        return res.status(400).json({ error: 'Invalid status. Must be: approved, rejected, published, draft, or disabled' });
-    }
-
     try {
         const updatePayload = {
-            status: status === 'approved' ? 'published' : status, // Map approved to published
+            status,
             reviewed_at: new Date().toISOString(),
             reviewed_by: req.user.id,
             updated_at: new Date().toISOString(),
         };
-
-        // Add rejection reason if provided
-        if (rejectionReason) {
-            updatePayload.rejection_reason = rejectionReason;
-        }
+        if (rejectionReason) updatePayload.rejection_reason = rejectionReason;
 
         const { data, error } = await supabase
             .from('courses')
@@ -1501,298 +1067,18 @@ app.put('/api/admin/approve-course', authenticateToken, requireAdmin, async (req
 
         if (error) throw error;
 
-        console.log(`[CourseApproval] Course ${courseId} ${status} by ${req.user.id}`);
-        res.json({ message: `Course ${status} successfully`, course: data });
+        // Log the action
+        await supabase.from('system_logs').insert({
+            log_type: 'audit',
+            module: 'Course',
+            action: `Course ${status}`,
+            user_id: req.user.id,
+            details: { course_id: courseId, status }
+        }).single();
+
+        res.json({ message: `Course ${status} successfully`, data });
     } catch (err) {
-        handleSupabaseError(res, err, 'courses');
-    }
-});
-
-// Get pending courses for admin approval
-app.get('/api/admin/pending-courses', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('courses')
-            .select('*')
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Get instructor details
-        const instructorIds = [...new Set((data || []).map(c => c.instructor_id).filter(Boolean))];
-        let instructorMap = {};
-
-        if (instructorIds.length > 0) {
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', instructorIds);
-
-            if (profiles) {
-                instructorMap = profiles.reduce((acc, p) => {
-                    acc[p.id] = { full_name: p.full_name, email: p.email };
-                    return acc;
-                }, {});
-            }
-        }
-
-        const enrichedCourses = (data || []).map(c => ({
-            ...c,
-            instructor_name: c.instructor_id ? instructorMap[c.instructor_id]?.full_name || 'Unknown' : 'Not Assigned',
-            instructor_email: c.instructor_id ? instructorMap[c.instructor_id]?.email || '' : ''
-        }));
-
-        res.json(enrichedCourses);
-    } catch (err) {
-        handleSupabaseError(res, err, 'courses');
-    }
-});
-
-// Admin: Assign course to instructor
-app.post('/api/admin/assign-course', authenticateToken, requireAdminOrManager, async (req, res) => {
-    const { courseId, instructorId } = req.body;
-    
-    console.log('[AssignCourse] Request received:', { courseId, instructorId, body: req.body });
-    
-    if (!courseId || !instructorId) {
-        return res.status(400).json({ error: 'courseId and instructorId are required' });
-    }
-
-    try {
-        // Use admin client to bypass RLS
-        const adminClient = getSupabaseAdmin();
-        
-        // First check if course exists
-        const { data: courseCheck, error: checkError } = await adminClient
-            .from('courses')
-            .select('id, title, instructor_id')
-            .eq('id', courseId)
-            .single();
-            
-        console.log('[AssignCourse] Course check:', courseCheck, checkError);
-        
-        if (checkError) {
-            console.error('[AssignCourse] Course not found:', checkError);
-            return res.status(404).json({ error: 'Course not found' });
-        }
-
-        // Now update only instructor_id (status column doesn't exist in courses table)
-        const { data, error } = await adminClient
-            .from('courses')
-            .update({ 
-                instructor_id: instructorId,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', courseId)
-            .select()
-            .single();
-
-        if (error) {
-            console.error('[AssignCourse] Update error:', error);
-            return res.status(500).json({ error: error.message });
-        }
-
-        console.log('[AssignCourse] Success:', data);
-        res.json({ 
-            message: 'Course assigned to instructor successfully',
-            course: data 
-        });
-    } catch (err) {
-        console.error('[AssignCourse] Catch error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Admin: Get all instructors
-app.get('/api/admin/instructors', authenticateToken, requireAdminOrManager, async (req, res) => {
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        const { data: instructors, error } = await authClient
-            .from('user_roles')
-            .select('user_id, role, created_at')
-            .eq('role', 'instructor');
-
-        if (error) throw error;
-
-        if (!instructors || instructors.length === 0) {
-            return res.json([]);
-        }
-
-        // Get profile details for each instructor
-        const userIds = instructors.map(i => i.user_id);
-        const { data: profiles } = await authClient
-            .from('profiles')
-            .select('id, full_name, email')
-            .in('id', userIds);
-
-        const profileMap = (profiles || []).reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-        }, {});
-
-        const enrichedInstructors = instructors.map(i => ({
-            ...i,
-            full_name: profileMap[i.user_id]?.full_name || 'Unknown',
-            email: profileMap[i.user_id]?.email || 'Unknown'
-        }));
-
-        res.json(enrichedInstructors);
-    } catch (err) {
-        console.error('Get instructors error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Admin: Lookup user by UUID
-app.get('/api/admin/lookup-user/:userId', authenticateToken, requireAdminOrManager, async (req, res) => {
-    const { userId } = req.params;
-    
-    if (!userId) {
-        return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        // Get user profile
-        const { data: profile, error: profileError } = await authClient
-            .from('profiles')
-            .select('id, full_name, email')
-            .eq('id', userId)
-            .single();
-
-        if (profileError || !profile) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Get user role
-        const { data: userRole } = await authClient
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        res.json({
-            user_id: profile.id,
-            full_name: profile.full_name || 'Unknown',
-            email: profile.email || 'Unknown',
-            role: userRole?.role || 'student'
-        });
-    } catch (err) {
-        console.error('Lookup user error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Admin: Get all courses with instructor info
-app.get('/api/admin/courses-with-instructors', authenticateToken, requireAdminOrManager, async (req, res) => {
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        const { data: courses, error } = await authClient
-            .from('courses')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (!courses || courses.length === 0) {
-            return res.json([]);
-        }
-
-        // Get unique instructor IDs
-        const instructorIds = [...new Set(courses.map(c => c.instructor_id).filter(Boolean))];
-        
-        let profileMap = {};
-        if (instructorIds.length > 0) {
-            const { data: profiles } = await authClient
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', instructorIds);
-
-            profileMap = (profiles || []).reduce((acc, p) => {
-                acc[p.id] = p;
-                return acc;
-            }, {});
-        }
-
-        const enrichedCourses = courses.map(c => ({
-            ...c,
-            instructor_name: c.instructor_id ? profileMap[c.instructor_id]?.full_name || 'Not Assigned' : 'Not Assigned',
-            instructor_email: c.instructor_id ? profileMap[c.instructor_id]?.email || '' : ''
-        }));
-
-        res.json(enrichedCourses);
-    } catch (err) {
-        console.error('Get courses error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Instructor: Submit course for approval
-app.post('/api/instructor/submit-course', authenticateToken, requireInstructor, async (req, res) => {
-    const { courseId } = req.body;
-    if (!courseId) return res.status(400).json({ error: 'courseId is required' });
-
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        // Verify course exists and belongs to instructor
-        const { data: course, error: courseError } = await authClient
-            .from('courses')
-            .select('*')
-            .eq('id', courseId)
-            .eq('instructor_id', req.user.id)
-            .single();
-
-        if (courseError || !course) {
-            return res.status(404).json({ error: 'Course not found or access denied' });
-        }
-
-        // Update status to pending
-        const { data, error } = await authClient
-            .from('courses')
-            .update({ 
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            })
-            .eq('id', courseId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        console.log(`[SubmitCourse] Course ${courseId} submitted by ${req.user.id}`);
-        res.json({ message: 'Course submitted for approval', course: data });
-    } catch (err) {
-        console.error('Submit course error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Instructor: Save course as draft
-app.post('/api/instructor/save-draft', authenticateToken, requireInstructor, async (req, res) => {
-    const { courseId } = req.body;
-    if (!courseId) return res.status(400).json({ error: 'courseId is required' });
-
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        const { data, error } = await authClient
-            .from('courses')
-            .update({ status: 'draft' })
-            .eq('id', courseId)
-            .eq('instructor_id', req.user.id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        res.json({ message: 'Course saved as draft', course: data });
-    } catch (err) {
-        console.error('Save draft error:', err);
+        console.error('[Admin] Course approval error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1817,7 +1103,7 @@ app.post('/api/data/course_enrollments', authenticateToken, async (req, res) => 
         // We use the service role client 'supabase' to be sure we can read the course details
         const { data: course, error: courseError } = await supabase
             .from('courses')
-            .select('id, instructor_id, status, title, category, price')
+            .select('id, instructor_id, status')
             .eq('id', course_id)
             .single();
 
@@ -1831,15 +1117,13 @@ app.post('/api/data/course_enrollments', authenticateToken, async (req, res) => 
             return res.status(403).json({ error: 'You do not have permission to enroll students in this course' });
         }
 
-        // 2. Create the enrollment with course details
+        // 2. Create the enrollment
         // Use service role 'supabase' to bypass RLS issues for the instructor inserting for a student
         const { data, error } = await supabase
             .from('course_enrollments')
             .insert({
                 user_id,
                 course_id,
-                course_name: course.title,
-                price: course.price,
                 status: 'active',
                 progress_percentage: 0
             })
@@ -1884,15 +1168,7 @@ app.post('/api/data/:table', authenticateToken, async (req, res) => {
         const authClient = getAuthClient(req.supabaseToken);
         const isArray = Array.isArray(req.body);
 
-        // Auto-set 'pending' status for new courses if not provided
-        let insertData = req.body;
-        if (table === 'courses' && !isArray) {
-            if (!insertData.status) {
-                insertData = { ...insertData, status: 'pending' };
-            }
-        }
-
-        let query = authClient.from(table).insert(insertData).select();
+        let query = authClient.from(table).insert(req.body).select();
 
         // Only use .single() if we are inserting a single object
         if (!isArray) {
@@ -1901,12 +1177,6 @@ app.post('/api/data/:table', authenticateToken, async (req, res) => {
 
         const { data, error } = await query;
         if (error) return handleSupabaseError(res, error, table);
-        
-        // Log course creation for admin review
-        if (table === 'courses') {
-            console.log(`[CourseCreated] New course "${insertData.title}" created with status: ${insertData.status || 'pending'}`);
-        }
-        
         res.json(data);
     } catch (err) {
         handleSupabaseError(res, err, table);
@@ -2103,248 +1373,4 @@ app.post('/api/zoom/signature', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to generate SDK signature' });
     }
 });
-
-// ========== COURSE ENROLLMENT API ==========
-
-// Get all enrollments (admin/manager only)
-app.get('/api/courses/enrollments', authenticateToken, requireAdminOrManager, async (req, res) => {
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        // Get all enrollments with user details
-        const { data: enrollments, error } = await authClient
-            .from('course_enrollments')
-            .select('*')
-            .order('enrollment_date', { ascending: false });
-
-        if (error) {
-            console.error('Fetch enrollments error:', error);
-            throw error;
-        }
-
-        if (!enrollments || enrollments.length === 0) {
-            return res.json([]);
-        }
-
-        // Get user details for each enrollment
-        const userIds = [...new Set(enrollments.map(e => e.user_id).filter(Boolean))];
-        const courseIds = [...new Set(enrollments.map(e => e.course_id).filter(Boolean))];
-        
-        if (userIds.length === 0) {
-            return res.json(enrollments.map(e => ({
-                ...e,
-                user_name: 'Unknown',
-                user_email: 'Unknown'
-            })));
-        }
-
-        const { data: profiles } = await authClient
-            .from('profiles')
-            .select('id, full_name, email')
-            .in('id', userIds);
-
-        const profileMap = (profiles || []).reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-        }, {});
-
-        // Get course details
-        let courseMap = {};
-        if (courseIds.length > 0) {
-            const { data: courses } = await authClient
-                .from('courses')
-                .select('id, title, category, thumbnail_url')
-                .in('id', courseIds);
-            
-            courseMap = (courses || []).reduce((acc, c) => {
-                acc[c.id] = c;
-                return acc;
-            }, {});
-        }
-
-        const enrichedEnrollments = enrollments.map(e => ({
-            ...e,
-            user_name: profileMap[e.user_id]?.full_name || 'Unknown',
-            user_email: profileMap[e.user_id]?.email || 'Unknown',
-            course_title: courseMap[e.course_id]?.title || e.course_name || '',
-            course_category: courseMap[e.course_id]?.category || '',
-            course_thumbnail: courseMap[e.course_id]?.thumbnail_url || ''
-        }));
-
-        res.json(enrichedEnrollments);
-    } catch (err) {
-        console.error('Get enrollments error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get user's own enrollments
-app.get('/api/courses/my-enrollments', authenticateToken, async (req, res) => {
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        const { data: enrollments, error } = await authClient
-            .from('course_enrollments')
-            .select('*')
-            .eq('user_id', req.user.id)
-            .order('enrollment_date', { ascending: false });
-
-        if (error) throw error;
-
-        // Enrich with course details
-        if (enrollments && enrollments.length > 0) {
-            const courseIds = [...new Set(enrollments.map(e => e.course_id).filter(Boolean))];
-            if (courseIds.length > 0) {
-                const { data: courses } = await authClient
-                    .from('courses')
-                    .select('id, title, category, thumbnail_url, image, price, duration')
-                    .in('id', courseIds);
-                
-                const courseMap = (courses || []).reduce((acc, c) => {
-                    acc[c.id] = c;
-                    return acc;
-                }, {});
-
-                const enrichedEnrollments = enrollments.map(e => ({
-                    ...e,
-                    course_title: courseMap[e.course_id]?.title || e.course_name || '',
-                    course_category: courseMap[e.course_id]?.category || '',
-                    course_thumbnail: courseMap[e.course_id]?.thumbnail_url || courseMap[e.course_id]?.image || '',
-                    course_price: courseMap[e.course_id]?.price || '',
-                    course_duration: courseMap[e.course_id]?.duration || ''
-                }));
-
-                return res.json(enrichedEnrollments);
-            }
-        }
-
-        res.json(enrollments);
-    } catch (err) {
-        console.error('Get my enrollments error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Check if user is enrolled in a course
-app.get('/api/courses/enrollment/:courseId', authenticateToken, async (req, res) => {
-    try {
-        const { courseId } = req.params;
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        const { data: enrollment, error } = await authClient
-            .from('course_enrollments')
-            .select('*')
-            .eq('user_id', req.user.id)
-            .eq('course_id', courseId)
-            .single();
-
-        if (error && error.code !== 'PGRST116') throw error;
-
-        res.json({ enrolled: !!enrollment, enrollment });
-    } catch (err) {
-        console.error('Check enrollment error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Enroll in a course - save to database
-app.post('/api/courses/enroll', authenticateToken, async (req, res) => {
-    const { courseId, courseName, price } = req.body;
-    
-    if (!courseId || !courseName) {
-        return res.status(400).json({ error: 'courseId and courseName are required' });
-    }
-
-    try {
-        // Get user profile
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        // Check if already enrolled
-        const { data: existing } = await authClient
-            .from('course_enrollments')
-            .select('id')
-            .eq('user_id', req.user.id)
-            .eq('course_id', courseId)
-            .single();
-
-        if (existing) {
-            return res.status(400).json({ error: 'Already enrolled in this course' });
-        }
-
-        // Save enrollment to database
-        const { data: enrollment, error: enrollmentError } = await authClient
-            .from('course_enrollments')
-            .insert({
-                user_id: req.user.id,
-                course_id: courseId,
-                course_name: courseName,
-                price: price || '0',
-                source: 'AOTMS LMS Website',
-                status: 'pending',
-                enrollment_date: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-        if (enrollmentError) throw enrollmentError;
-
-        res.json({ 
-            message: 'Successfully enrolled in course! Enrollment is pending approval.',
-            enrollment
-        });
-    } catch (err) {
-        console.error('Enrollment error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Update enrollment status (admin/manager only)
-app.put('/api/courses/enrollment-status', authenticateToken, async (req, res) => {
-    const { enrollmentId, status } = req.body;
-    
-    if (!enrollmentId || !status) {
-        return res.status(400).json({ error: 'enrollmentId and status are required' });
-    }
-
-    try {
-        const authClient = getAuthClient(req.supabaseToken);
-        
-        // Check if user is admin or manager
-        const { data: userRole } = await authClient
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', req.user.id)
-            .in('role', ['admin', 'manager'])
-            .maybeSingle();
-
-        if (!userRole) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-
-        // Update enrollment status
-        const { data, error } = await authClient
-            .from('course_enrollments')
-            .update({ status: status })
-            .eq('id', enrollmentId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        res.json({ 
-            message: `Enrollment marked as ${status}`,
-            enrollment: data
-        });
-    } catch (err) {
-        console.error('Update enrollment status error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Start Server
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
-
-module.exports = app;
 

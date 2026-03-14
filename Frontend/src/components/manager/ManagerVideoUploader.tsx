@@ -110,7 +110,8 @@ export function ManagerVideoUploader() {
                 file: selectedFile,
                 customTitle: videoDetails.title,
                 folder: 'LMS VIDEOS',
-                onProgress: setUploadProgress
+                onProgress: setUploadProgress,
+                courseId: selectedCourseId
             });
 
             // 2. Save metadata to Supabase
@@ -127,10 +128,14 @@ export function ManagerVideoUploader() {
             setUploadProgress(100);
             toast({ title: "Upload Success", description: "Video stored in S3 and linked to module." });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload error:', error);
             setUploadStatus("error");
-            toast({ title: "Upload Failed", description: "Something went wrong during the upload process.", variant: "destructive" });
+            if (error.message === 'COURSE_NOT_APPROVED') {
+                toast({ title: "Course Not Approved", description: "This course must be approved before uploading videos.", variant: "destructive" });
+            } else {
+                toast({ title: "Upload Failed", description: "Something went wrong during the upload process.", variant: "destructive" });
+            }
         }
     };
 

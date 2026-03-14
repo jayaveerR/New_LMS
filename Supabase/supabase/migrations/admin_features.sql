@@ -52,7 +52,7 @@
  CREATE TABLE public.course_approvals (
      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
      course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE NOT NULL UNIQUE,
-     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disabled')),
+     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disabled', 'published', 'draft')),
      reviewed_by UUID REFERENCES auth.users(id),
      reviewed_at TIMESTAMPTZ,
      rejection_reason TEXT,
@@ -108,6 +108,17 @@
  SET search_path = public
  AS $$
    SELECT public.has_role(_user_id, 'admin')
+ $$;
+ 
+ -- Check if user is manager
+ CREATE OR REPLACE FUNCTION public.is_manager(_user_id UUID)
+ RETURNS BOOLEAN
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path = public
+ AS $$
+   SELECT public.has_role(_user_id, 'manager')
  $$;
  
  -- Log system event

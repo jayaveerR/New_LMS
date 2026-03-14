@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 import {
   Card,
   CardContent,
@@ -408,7 +409,7 @@ function DashboardHome() {
                 <div className="flex flex-col md:flex-row gap-6 md:items-center">
                   <div className="aspect-video md:w-64 shrink-0 rounded-xl overflow-hidden bg-slate-100 relative group cursor-pointer shadow-sm border border-slate-200">
                     <img
-                      src={latestCourse.thumbnail_url?.startsWith("http") ? latestCourse.thumbnail_url : `https://new-lms-m5l5.onrender.com/api/s3/public/${latestCourse.thumbnail_url}`}
+                      src={latestCourse.thumbnail_url?.startsWith("http") ? latestCourse.thumbnail_url : `${API_URL}/s3/public/${latestCourse.thumbnail_url}`}
                       alt={latestCourse.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop"; }}
